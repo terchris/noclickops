@@ -76,6 +76,23 @@ out=$(NOCLICKOPS_DIR="$INSTALL_DIR" bash -c "
 assert_contains "$out" "no such command 'bogus'" "unknown subcommand → friendly error"
 assert_contains "$out" "RC=1"                    "unknown subcommand exit 1"
 
+# 8a. (v1.2.1 regression guard) `noclickops --help` and `noclickops -h` via
+# the shell function must reach the dispatcher's --help, not be misclassified
+# as 'no such command --help'. The pre-v1.2.1 function had its own dispatch
+# loop that didn't recognise -h/--help and tried to find bin/--help.sh.
+out=$(NOCLICKOPS_DIR="$INSTALL_DIR" bash -c "
+  . '$INSTALL_DIR/shell/init.sh'
+  noclickops --help 2>&1
+")
+assert_contains "$out" "Category: meta" "function forwards --help to dispatcher"
+assert_not_contains "$out" "no such command '--help'" "function does NOT misclassify --help"
+
+out=$(NOCLICKOPS_DIR="$INSTALL_DIR" bash -c "
+  . '$INSTALL_DIR/shell/init.sh'
+  noclickops -h 2>&1
+")
+assert_contains "$out" "Category: meta" "function forwards -h to dispatcher"
+
 # 9. Lister hides empty sections.
 out="$("$INSTALL_DIR/bin/noclickops.sh" 2>&1)"
 assert_contains "$out" "Meta"               "lister shows Meta section"

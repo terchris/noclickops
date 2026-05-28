@@ -4,6 +4,9 @@
 # Source from your $PROFILE:
 #
 #   if (Test-Path "$HOME/.noclickops/shell/init.ps1") { . "$HOME/.noclickops/shell/init.ps1" }
+#
+# From v1.2.1: thin wrapper that forwards everything to bin/noclickops.ps1.
+# Single source of dispatch — same fix as init.sh.
 
 function noclickops {
   $install_dir = if ($env:NOCLICKOPS_DIR) { $env:NOCLICKOPS_DIR } else { Join-Path $HOME ".noclickops" }
@@ -11,16 +14,5 @@ function noclickops {
     Write-Error "noclickops: install dir $install_dir not found (set NOCLICKOPS_DIR or re-run install.ps1)"
     return
   }
-  if ($args.Count -eq 0) {
-    & (Join-Path $install_dir "bin/noclickops.ps1")
-    return
-  }
-  $cmd = $args[0]
-  $rest = if ($args.Count -gt 1) { $args[1..($args.Count - 1)] } else { @() }
-  $script = Join-Path $install_dir "bin/$cmd.ps1"
-  if (-not (Test-Path $script)) {
-    Write-Error "noclickops: no such command '$cmd' (try: noclickops)"
-    return
-  }
-  & $script @rest
+  & (Join-Path $install_dir "bin/noclickops.ps1") @args
 }
