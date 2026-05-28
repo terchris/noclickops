@@ -5,7 +5,7 @@
 > - [WORKFLOW.md](../../WORKFLOW.md) — the implementation process
 > - [PLANS.md](../../PLANS.md) — plan structure and best practices
 
-## Status: Backlog
+## Status: Completed 2026-05-28
 
 **Goal**: Lay down the foundation every other PLAN builds on — the directory layout, the `lib/` helpers (with sourcing guards), the metadata convention every `bin/` script will follow, an `AGENTS.md` sibling for `CLAUDE.md`, and the first two scripts: `noclickops update` (real implementation) and a `noclickops` stub (real lister comes in PLAN-002).
 
@@ -19,6 +19,32 @@
 **Blocks**: PLAN-002 onwards — every later PLAN sources files from `lib/`.
 
 **Priority**: High.
+
+---
+
+## Completion notes (2026-05-28)
+
+All five phases shipped on branch `feature/ai-developer-bootstrap`.
+
+**Smoke-test results** (run in-place against the working tree, with `NOCLICKOPS_DIR` resolving to the repo root via `lib/paths.sh`):
+
+| # | Test | Result |
+| --- | --- | --- |
+| 1 | `bin/noclickops.sh` lists both commands with descriptions from metadata | ✅ |
+| 2 | `bin/noclickops.sh --help` prints the metadata-driven help block | ✅ |
+| 3 | `bin/update.sh --help` prints the same uniform help shape | ✅ |
+| 4 | `update.sh` against a non-git dir fails fast with clear error | ✅ |
+| 5 | `TARGET_REPO` empty outside a repo, populated inside | ✅ |
+| 6 | Sourcing-guards prevent double-initialization on repeated `.` | ✅ |
+
+**Deviations from the PLAN as written**:
+
+- `lib/paths.sh` resolves `NOCLICKOPS_DIR` as **one level up** from `lib/` (the parent of `$(dirname "${BASH_SOURCE[0]}")`), not "3 parents above" as the PLAN's prose claimed. The PLAN prose was confused; the implementation is correct.
+- PowerShell ports of every file shipped but were **not executed** — no `pwsh` on the maintainer's Mac. Each `.ps1` carries a "NOTE: unverified on Mac" header; Windows verification deferred to whoever first runs it on Windows.
+
+**What this PLAN does NOT do — typability still comes in PLAN-002**:
+
+After PLAN-001, scripts are invoked by full path (e.g. `~/.noclickops/bin/noclickops.sh`). The typeable `noclickops <subcommand>` form needs the shell function from [`INVESTIGATE-noclickops.md` → "How `noclickops` becomes typeable"], which `install.{sh,ps1}` (PLAN-002) will print for the user to paste.
 
 ---
 
