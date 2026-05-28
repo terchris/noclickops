@@ -1,0 +1,23 @@
+═══════════════════════════════════════════════════════════════════════
+ Welcome to noclickops
+═══════════════════════════════════════════════════════════════════════
+
+A portable script suite for developers. Operates on whichever git repo
+your shell is currently in — open PRs, deploy, scaffold services, tail
+logs, see what's deployed — no clickops required.
+
+Next steps:
+
+  1. Restart your shell, or:
+       source ~/.zshrc      (zsh)
+       source ~/.bashrc     (bash)
+       . $PROFILE           (PowerShell)
+
+  2. Run 'noclickops' to list available commands.
+
+  3. Run 'noclickops <cmd> --help' for usage on a specific command.
+
+  4. Run 'noclickops update' periodically to pull the latest noclickops.
+
+Source: https://github.com/terchris/noclickops
+═══════════════════════════════════════════════════════════════════════
