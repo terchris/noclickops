@@ -160,15 +160,15 @@ If this investigation is approved, the following changes propagate back into `IN
 
 ---
 
-## Decisions to confirm
+## Decisions — RESOLVED 2026-05-28
 
-- **[U1]** Adopt **A1** (`lib/` separation with sourcing guards) — **recommended yes**.
-- **[U2]** Adopt **A2** (`SCRIPT_CATEGORY` metadata + grouped help output) — **recommended yes**.
-- **[U3]** Adopt **A3** (file-grep service scanner — already designed; UIS confirms) — **recommended yes**.
-- **[U4]** Adopt **A4** (idempotent first-run wizard inside `install.sh`) — **recommended yes**.
-- **[U5]** Adopt **A5** (`welcome.txt` shown on first install) — **recommended yes**; trivial cost.
-- **[U6]** Adopt **A6** (`AGENTS.md` sibling of `CLAUDE.md`) — **recommended yes**; near-zero cost.
-- **[U7]** Defer **B1–B4** (container model, stacks, template registry, TUI). Not adopt **B5** (per-target state). — **recommended yes** as stated.
+- ✅ **[U1]** Adopt **A1** — `lib/` separation with sourcing guards.
+- ✅ **[U2]** Adopt **A2** — `SCRIPT_CATEGORY` metadata + grouped help output.
+- ✅ **[U3]** Adopt **A3** — file-grep service scanner.
+- ✅ **[U4]** Adopt **A4** — idempotent first-run wizard inside `install.sh`.
+- ✅ **[U5]** Adopt **A5** — `welcome.txt` shown on first install.
+- ✅ **[U6]** Adopt **A6** — `AGENTS.md` sibling of `CLAUDE.md`.
+- ✅ **[U7]** Defer B1–B4 (container model, stacks, template registry, TUI). Not adopt B5 (per-target state).
 
 ---
 

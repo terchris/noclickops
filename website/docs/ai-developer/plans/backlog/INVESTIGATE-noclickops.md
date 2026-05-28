@@ -72,7 +72,7 @@ Recorded here as prose so future readers don't have to chase IDs across repos. *
 2. **`add-service`** wraps the existing ADO pipeline (`az pipelines run --name "$AZDO_REPO-add-service" --parameters …`); does **not** re-implement Copier locally. Pipelines are maintained; our job is to trigger them.
 3. **`logs`** and **`shell`** ship with fail-closed messaging when the dev's `az` login doesn't have Reader access to the env's Azure subscription. Documented limitation; follow-up admin task: grant Reader to a dev AD group.
 4. **`info`** reads mostly local files (variables YAML + `health.json`) and ADO data (pipeline runs); the few sub-only fields (Internal FQDN, live replica count) print `—` when access is missing — so `info` is usable for every dev.
-5. **Help + metadata**: every script declares `SCRIPT_NAME` / `SCRIPT_DESCRIPTION` / `SCRIPT_USAGE` / `SCRIPT_EXAMPLE` near the top; `--help` reads them via a shared `show_help` helper in `lib/_common.sh` / `.ps1`. Borrowed pattern from `devcontainer-toolbox/.devcontainer/additions/`.
+5. **Help + metadata**: every script declares `SCRIPT_NAME` / `SCRIPT_DESCRIPTION` / `SCRIPT_USAGE` / `SCRIPT_EXAMPLE` / **`SCRIPT_CATEGORY`** (added per `INVESTIGATE-uis-lessons` [U2]) near the top; `--help` reads them via a shared `show_help` helper in `lib/metadata.{sh,ps1}`. Borrowed pattern from `devcontainer-toolbox/.devcontainer/additions/` and validated by UIS's production service-scanner. `SCRIPT_CATEGORY` values for v1: `meta` (noclickops, update), `git` (create-pr, merge-pr), `deploy` (deploy, add-service), `service-lifecycle` (clean-sample, sync-lovable), `inspect` (info, logs, shell). The `noclickops` lister groups output by category.
 6. **Discovery**: `noclickops` (no args) grep-extracts the metadata from every script in `bin/` and prints a table. Single source of truth = the script files themselves.
 7. **Typability**: `~/.zshrc` / `~/.bashrc` / `$PROFILE` shell function uses `git rev-parse --show-toplevel` to locate the install dir's `bin/<cmd>.{sh,ps1}` and exec it. The same function gives subcommand dispatch (`noclickops deploy …`) for free.
 8. **PowerShell parity**: every command ships `.sh` and `.ps1` siblings. PowerShell is part of the contract because the team has Windows users.
@@ -106,6 +106,23 @@ How the user gets a newer version.
 Where the executable scripts live in this repo.
 
 - ✅ **[Q3a]** `bin/` for scripts, `lib/` for shared helpers, `templates/` for stack templates, `install.{sh,ps1}` at the root. *Resolved 2026-05-28.* The shell-function dispatcher routes to `bin/<cmd>.{sh,ps1}` cleanly.
+
+  Per `INVESTIGATE-uis-lessons` [U1]: **`lib/` is multi-file** (one purpose per file), not a single `_common.{sh,ps1}`. The shape:
+
+  ```text
+  lib/
+    logging.{sh,ps1}      log_info / log_success / log_warn / log_error with colours
+    utilities.{sh,ps1}    die, strict-mode, require_cmd, common helpers
+    paths.{sh,ps1}        NOCLICKOPS_DIR, TARGET_REPO, BIN_DIR, LIB_DIR, TEMPLATES_DIR
+    metadata.{sh,ps1}     parse SCRIPT_* vars from a script file; print --help
+  ```
+
+  Each lib file begins with a sourcing-guard so multiple `bin/` scripts can `source lib/logging.sh` + `source lib/utilities.sh` without redundant setup:
+
+  ```bash
+  [[ -n "${_NCO_LOGGING_LOADED:-}" ]] && return 0
+  _NCO_LOGGING_LOADED=1
+  ```
 - ~~**[Q3b]** Flat — all scripts at repo root~~ — rejected (clutters with ~10 scripts).
 
 ### [Q4] Versioning approach — RESOLVED
@@ -136,8 +153,8 @@ What identifies a repo as "a noclickops-using repo" beyond "the dev has noclicko
 
 After approval. Dependency-ordered so each PLAN builds on what landed before:
 
-- **PLAN-001-foundation** — repo skeleton (`bin/`, `lib/`, `templates/`, `README.md` at root), `lib/_common.{sh,ps1}` with the portability helpers (parse org / project / repo from any git remote; parse `APP_NAME` from target repo's `.pipelines/variables/common.yaml`), `show_help` helper, the metadata convention. Adds **`noclickops update`** (script under `bin/`).
-- **PLAN-002-noclickops-and-installer** — `bin/noclickops.{sh,ps1}` lister (the discovery command), plus `install.{sh,ps1}` at the root that clones to `~/.noclickops/` and prints the shell-function snippet. Documents the Bash + PowerShell snippets in `README.md`.
+- **PLAN-001-foundation** — repo skeleton (`bin/`, `lib/`, `templates/`); root-level `README.md` + **`AGENTS.md`** (sibling of `CLAUDE.md`, per [U6]). Authors the four `lib/` files (`logging`, `utilities`, `paths`, `metadata`) per [Q3]/[U1] with sourcing guards. `lib/metadata.{sh,ps1}` defines the `show_help` helper and the metadata-parsing convention (incl. `SCRIPT_CATEGORY`, per [U2]). Adds the first two `bin/` scripts: **`noclickops update`** (real impl — `git -C ~/.noclickops pull --ff-only`) and a **`noclickops`** stub (full lister comes in PLAN-002, but the stub demonstrates the metadata pattern and gives `noclickops` something to do from day one).
+- **PLAN-002-noclickops-and-installer** — `bin/noclickops.{sh,ps1}` real lister (grep-extracts metadata from every `bin/*.{sh,ps1}` and prints grouped by `SCRIPT_CATEGORY`, per [U3]). Plus `install.{sh,ps1}` at the root: **idempotent** first-run wizard (per [U4]) that clones to `~/.noclickops/`, prints a brief `welcome.txt`-style message (per [U5]), and prints the Bash + PowerShell shell-function snippets to paste into the user's profile. Documents both snippets in `README.md`.
 - **PLAN-003-pr-and-merge** — `create-pr` + `merge-pr`. Wrap `az repos pr create` / `az repos pr update` (v1 targets Azure DevOps only — see Principles).
 - **PLAN-004-deploy** — `deploy`. Wraps `az pipelines run` against the target repo's CD pipeline; respects the `<repo>-<service>-CD` naming convention.
 - **PLAN-005-clean-sample** — `clean-sample`. Pure local; strips the Next.js Copier sample. Smallest of the new PLANs; good place to validate the metadata/help pattern on a near-trivial script.
