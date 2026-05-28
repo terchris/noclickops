@@ -28,6 +28,20 @@
 
 It also delivers the smallest end-user-visible feature — `noclickops update` — so the foundation can be tested end-to-end against a real `~/.noclickops/` clone before PLAN-002 lands.
 
+## What this PLAN does NOT do — typability comes in PLAN-002
+
+After PLAN-001 lands and the user has cloned the repo to `~/.noclickops/`, they invoke scripts by **full path**:
+
+```bash
+~/.noclickops/bin/noclickops.sh          # the stub lister
+~/.noclickops/bin/update.sh              # pulls latest
+~/.noclickops/bin/update.sh --help       # metadata-driven help
+```
+
+The plain `noclickops` and `noclickops deploy …` forms require the **shell function** documented under "How `noclickops` becomes typeable" in `INVESTIGATE-noclickops.md` — that function lives in the user's `~/.zshrc` / `~/.bashrc` / `$PROFILE`. **PLAN-002's `install.{sh,ps1}` is what prints the snippet** for the user to paste; PLAN-001 ships only the scripts the function dispatches *to*.
+
+This split is deliberate: PLAN-001 is end-to-end runnable via full paths (so the foundation is testable on its own); PLAN-002 layers in the install UX. Foundation first, polish second.
+
 ---
 
 ## Phase 1: Repo skeleton + root docs

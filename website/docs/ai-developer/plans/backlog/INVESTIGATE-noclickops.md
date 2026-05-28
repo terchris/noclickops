@@ -74,10 +74,64 @@ Recorded here as prose so future readers don't have to chase IDs across repos. *
 4. **`info`** reads mostly local files (variables YAML + `health.json`) and ADO data (pipeline runs); the few sub-only fields (Internal FQDN, live replica count) print `—` when access is missing — so `info` is usable for every dev.
 5. **Help + metadata**: every script declares `SCRIPT_NAME` / `SCRIPT_DESCRIPTION` / `SCRIPT_USAGE` / `SCRIPT_EXAMPLE` / **`SCRIPT_CATEGORY`** (added per `INVESTIGATE-uis-lessons` [U2]) near the top; `--help` reads them via a shared `show_help` helper in `lib/metadata.{sh,ps1}`. Borrowed pattern from `devcontainer-toolbox/.devcontainer/additions/` and validated by UIS's production service-scanner. `SCRIPT_CATEGORY` values for v1: `meta` (noclickops, update), `git` (create-pr, merge-pr), `deploy` (deploy, add-service), `service-lifecycle` (clean-sample, sync-lovable), `inspect` (info, logs, shell). The `noclickops` lister groups output by category.
 6. **Discovery**: `noclickops` (no args) grep-extracts the metadata from every script in `bin/` and prints a table. Single source of truth = the script files themselves.
-7. **Typability**: `~/.zshrc` / `~/.bashrc` / `$PROFILE` shell function uses `git rev-parse --show-toplevel` to locate the install dir's `bin/<cmd>.{sh,ps1}` and exec it. The same function gives subcommand dispatch (`noclickops deploy …`) for free.
+7. **Typability**: a small `noclickops` shell function in the user's profile dispatches to the install dir's `bin/<cmd>.{sh,ps1}` — see "How `noclickops` becomes typeable" below for the actual snippets. The same function gives subcommand dispatch (`noclickops deploy …`) for free. (Inside each `bin/` script, `git rev-parse --show-toplevel` resolves the *target* repo from `pwd` — that step happens in the scripts, not in the dispatcher.)
 8. **PowerShell parity**: every command ships `.sh` and `.ps1` siblings. PowerShell is part of the contract because the team has Windows users.
 9. **Templates**: shipped in the suite at `templates/<stack>/` (e.g. `templates/lovable/`) and copied into target repos at run time by commands that need them (`sync-lovable`). Not embedded per-project.
 10. **`/health` for Lovable services**: nginx serves a static `health.json` written by `sync-lovable` carrying `source.repo` + `source.commit` + `source.commit_date`. PWA `navigateFallback` intercepting `/health` in a browser is a known limitation (works for probes / `curl` / Incognito).
+
+---
+
+## How `noclickops` becomes typeable
+
+After `install.sh` clones the repo to `~/.noclickops/` (PLAN-002), the dev still has to type `~/.noclickops/bin/noclickops.sh` — full path. To get plain `noclickops` and `noclickops deploy …`, the installer prints a shell-function snippet for the dev to paste into their shell profile. The function is small and stable; the snippet is what PLAN-002 ships:
+
+**Bash / zsh** (paste into `~/.zshrc` or `~/.bashrc`):
+
+```bash
+noclickops() {
+  local install_dir="${NOCLICKOPS_DIR:-$HOME/.noclickops}"
+  [ -d "$install_dir/bin" ] || { echo "noclickops: install dir $install_dir not found" >&2; return 1; }
+  if [ $# -eq 0 ]; then
+    "$install_dir/bin/noclickops.sh"
+  else
+    local cmd="$1"; shift
+    local script="$install_dir/bin/$cmd.sh"
+    [ -x "$script" ] || { echo "noclickops: no such command '$cmd' (try: noclickops)" >&2; return 1; }
+    "$script" "$@"
+  fi
+}
+```
+
+**PowerShell** (paste into `$PROFILE`):
+
+```powershell
+function noclickops {
+  $install_dir = if ($env:NOCLICKOPS_DIR) { $env:NOCLICKOPS_DIR } else { Join-Path $HOME ".noclickops" }
+  if (-not (Test-Path "$install_dir/bin")) { Write-Error "noclickops: install dir $install_dir not found"; return }
+  if ($args.Count -eq 0) {
+    & "$install_dir/bin/noclickops.ps1"
+  } else {
+    $cmd = $args[0]; $rest = @($args[1..($args.Count - 1)])
+    $script = "$install_dir/bin/$cmd.ps1"
+    if (-not (Test-Path $script)) { Write-Error "noclickops: no such command '$cmd' (try: noclickops)"; return }
+    & $script @rest
+  }
+}
+```
+
+**What this gives**:
+
+- `noclickops` (no args) → runs the lister (`bin/noclickops.sh`).
+- `noclickops deploy <service> test --watch` → dispatches to `bin/deploy.sh <service> test --watch`.
+- Install dir overridable via `NOCLICKOPS_DIR` env var (defaults to `$HOME/.noclickops`).
+- Inside each `bin/` script, `git rev-parse --show-toplevel` resolves the **target repo** the dev is currently in. The function doesn't touch that — it just dispatches.
+
+**Multi-repo, multi-OS coverage falls out**:
+
+- macOS (zsh) and Linux (bash) use the Bash function. Windows uses the PowerShell function in `$PROFILE`, or the Bash function in Git Bash / WSL.
+- The function lives in the user's shell profile (one-time, per-machine setup); every `bin/` script reads `pwd` at call time to figure out which target repo to operate on.
+
+**Alternative we deliberately reject — `export PATH=…/.noclickops/bin:$PATH`**: it would make `noclickops.sh` (with the `.sh` suffix) callable but not give subcommand dispatch, would expose `update.sh` / `info.sh` / etc. as top-level commands with the suffix, and would mix this tool's binaries with the rest of PATH. The function is the better idiom — same shape used by `nvm`, `pyenv-init`, etc.
 
 ---
 
