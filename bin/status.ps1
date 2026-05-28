@@ -1,11 +1,11 @@
-# bin/status.ps1 — show the status of an Azure DevOps pipeline run.
+# bin/status.ps1 — list recent pipeline runs, or show details for one run.
 # NOTE: PowerShell port. Unverified on Mac.
 #
 # --- noclickops metadata ---
 $SCRIPT_NAME        = "status"
-$SCRIPT_DESCRIPTION = "Show the status of an Azure DevOps pipeline run."
-$SCRIPT_USAGE       = "noclickops status <run-id>"
-$SCRIPT_EXAMPLE     = "noclickops status 12345"
+$SCRIPT_DESCRIPTION = "List recent pipeline runs, or show details for one run id."
+$SCRIPT_USAGE       = "noclickops status [<run-id>]"
+$SCRIPT_EXAMPLE     = "noclickops status"
 $SCRIPT_CATEGORY    = "inspect"
 # --- end metadata ---
 
@@ -28,19 +28,39 @@ if ($Help) {
   exit 0
 }
 
-if (-not $RunId) { Die -Message "Usage: $SCRIPT_USAGE" }
-if ($RunId -notmatch '^[0-9]+$') { Die -Message "Run id must be numeric: '$RunId'" }
+if ($RunId -and $RunId -notmatch '^[0-9]+$') {
+  Die -Message "Run id must be numeric: '$RunId'"
+}
 
 if (-not $script:TARGET_REPO) { Die -Message "Not inside a git repository. cd into a repo and re-run." }
 
 Derive-AzdoContext -TargetRepo $script:TARGET_REPO
 Require-Az
 
+# --- List mode (no run id) ---
+if (-not $RunId) {
+  Log-Step -Message "Recent runs in $($script:AZDO_REPO) (last 20)"
+  $table = & az pipelines runs list --top 50 -o table 2>$null
+  if (-not $table) {
+    Die -Message "az pipelines runs list returned nothing — check 'az login' and the azure-devops extension."
+  }
+  $lines = $table -split "`n"
+  # Header (first two lines).
+  $lines[0..1] | ForEach-Object { Write-Host $_ }
+  # Filtered body, up to 20 rows.
+  $matches = $lines | Select-Object -Skip 2 | Where-Object { $_ -match [regex]::Escape("$($script:AZDO_REPO)-") } | Select-Object -First 20
+  $matches | ForEach-Object { Write-Host $_ }
+  Write-Host ""
+  Log-Info -Message "Show details with: noclickops status <run-id>"
+  exit 0
+}
+
+# --- Detail mode (one run-id) ---
+
 $raw = & az pipelines runs show --id $RunId `
   --query "{name:definition.name, status:status, result:result, started:startTime, finished:finishTime}" `
   -o tsv
-
-$fields  = $raw -split "`t"
+$fields = $raw -split "`t"
 $pipeline = $fields[0]
 $status   = $fields[1]
 $result   = if ($fields.Length -gt 2) { $fields[2] } else { '' }

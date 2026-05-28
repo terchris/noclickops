@@ -1,16 +1,20 @@
 #!/usr/bin/env bash
-# bin/status.sh — show the status of an Azure DevOps pipeline run.
+# bin/status.sh — show the status of an Azure DevOps pipeline run, OR list
+# recent runs in the current target repo's pipelines.
 #
-# Generic: works for any pipeline run id in the target repo's project,
-# not just add-service. Useful for the fire-and-forget pattern in
-# `noclickops add-service` (PLAN-007a) where the pipeline takes ~1h and
-# `--watch` would be hostile.
+# Two modes:
+#   noclickops status                  → list recent runs in the target repo
+#   noclickops status <run-id>         → show details for one run
+#
+# Designed for the fire-and-forget pattern in `noclickops add-service`
+# (PLAN-007a) where the pipeline takes ~1h. The list mode (v1.2.0) lets
+# you discover run ids without needing to remember them.
 #
 # --- noclickops metadata ---
 SCRIPT_NAME="status"
-SCRIPT_DESCRIPTION="Show the status of an Azure DevOps pipeline run."
-SCRIPT_USAGE="noclickops status <run-id>"
-SCRIPT_EXAMPLE="noclickops status 12345"
+SCRIPT_DESCRIPTION="List recent pipeline runs, or show details for one run id."
+SCRIPT_USAGE="noclickops status [<run-id>]"
+SCRIPT_EXAMPLE="noclickops status"
 SCRIPT_CATEGORY="inspect"
 # --- end metadata ---
 
@@ -27,22 +31,42 @@ unset _dir
 case "${1:-}" in -h|--help) show_help "$0"; exit 0 ;; esac
 
 run_id="${1:-}"
-[ -n "$run_id" ] || die "Usage: $SCRIPT_USAGE"
 
-# ADO run ids are positive integers. Validate locally so we don't waste an
-# az roundtrip on a typo.
-case "$run_id" in
-  ''|*[!0-9]*) die "Run id must be numeric: '$run_id'" ;;
-esac
+# Validate numeric IF a run-id was given. No arg → list mode.
+if [ -n "$run_id" ]; then
+  case "$run_id" in
+    *[!0-9]*) die "Run id must be numeric: '$run_id'" ;;
+  esac
+fi
 
 [ -n "$TARGET_REPO" ] || die "Not inside a git repository. cd into a repo and re-run."
 
 derive_azdo_context "$TARGET_REPO"
 require_az
 
-# Pull all the fields in one call; -o tsv emits tab-separated values, with
-# null fields rendered as empty strings (or "None" on some az versions —
-# we filter both below).
+# --- List mode (no run-id given) ---
+if [ -z "$run_id" ]; then
+  log_step "Recent runs in $AZDO_REPO (last 20)"
+  # az's default `-o table` shows Run ID + Pipeline Name + Status + Result +
+  # other columns. We pull --top 50 and filter to this repo's pipelines via
+  # grep — using az's own table layout (which keeps the Run ID column
+  # reliably) is simpler than fighting JMESPath + table-rendering quirks.
+  table="$(az pipelines runs list --top 50 -o table 2>/dev/null || true)"
+  if [ -z "$table" ]; then
+    die "az pipelines runs list returned nothing — check 'az login' and the azure-devops extension."
+  fi
+
+  # Print the header (lines 1-2) then up to 20 filtered rows.
+  printf '%s\n' "$table" | head -2
+  printf '%s\n' "$table" | tail -n +3 | grep -F "$AZDO_REPO-" | head -20 || true
+
+  echo ""
+  log_info "Show details with: noclickops status <run-id>"
+  exit 0
+fi
+
+# --- Detail mode (one run-id) ---
+
 raw="$(az pipelines runs show --id "$run_id" \
   --query "{name:definition.name, status:status, result:result, started:startTime, finished:finishTime}" \
   -o tsv)"
