@@ -80,7 +80,7 @@ The shell function from [Q60] in the investigation routes by `pwd`'s git root �
 
 This repo is on **GitHub** (`https://github.com/terchris/noclickops`), not Azure DevOps. Ignore the Azure DevOps half of [`AZURE-DEVOPS.md`](AZURE-DEVOPS.md); use the **GitHub Operations (`gh`) section of [`GIT.md`](GIT.md)** for PR mechanics here.
 
-(Counterintuitively, `noclickops` itself *operates against* both GitHub and Azure DevOps targets — `create-pr` and `merge-pr` detect the target repo's host and call `gh` or `az repos` accordingly. But this repo's *own* PRs use GitHub.)
+(Distinct from the target platform: in v1 the **scripts here target Azure DevOps repos only** — matching the Red Cross stack `noclickops` exists to serve. The fact that `noclickops`'s *own* repo lives on GitHub is just where the tool is hosted; its operational reach is the ADO `az repos` / `az pipelines` / `az containerapp` surface. GitHub-target support is a future extension.)
 
 ---
 

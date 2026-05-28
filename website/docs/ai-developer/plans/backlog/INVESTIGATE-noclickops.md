@@ -38,9 +38,11 @@ The previous investigation (`INVESTIGATE-no-clickops.md` in `JKL900X016-NerdMeet
 - **Many repos** — the shell-function dispatcher calls `git rev-parse --show-toplevel` at *call* time, so the same command resolves to the right repo's context based on `pwd`.
 - **macOS / Linux / Windows** — Bash function in `~/.zshrc` / `~/.bashrc` covers macOS (zsh), Linux (bash), Windows via Git Bash and WSL. A PowerShell function in `$PROFILE` covers native Windows PowerShell. Every command ships `.sh` and `.ps1` siblings.
 
-### Multi-provider (GitHub *and* Azure DevOps)
+### Target platform: Azure DevOps only (v1)
 
-`noclickops`'s own repo is on GitHub, but the **target repos** it operates against can be on either GitHub or Azure DevOps. Commands like `create-pr` / `merge-pr` detect the target's host from its git remote and dispatch to `gh` or `az repos` accordingly. Commands that wrap pipelines (`deploy`, `add-service`) assume the target's pipeline platform (Azure DevOps for the Red Cross stack today; GitHub Actions in the future is out of v1 scope).
+`noclickops`'s own repo is on GitHub (this repo), but in v1 the **target repos it operates against are Azure DevOps only** — matching the Red Cross stack the tool exists to serve. Every command — `create-pr`, `merge-pr`, `deploy`, `add-service`, `logs`, `shell`, `info` — uses `az repos` / `az pipelines` / `az containerapp` against the target. No GitHub-target dispatch in v1.
+
+GitHub targets (`gh pr create`, GitHub Actions for deploy/add-service) are a **future extension** — a separate investigation when the need shows up. Scoping to one provider keeps the v1 simple and lets every script ship with one code path per concern.
 
 ---
 
@@ -49,8 +51,8 @@ The previous investigation (`INVESTIGATE-no-clickops.md` in `JKL900X016-NerdMeet
 | Command | Purpose | Target-side needs |
 | --- | --- | --- |
 | `noclickops` | Discovery — list all commands with descriptions | none |
-| `create-pr "<title>"` | Open a PR from current branch to `main` | `gh` or `az` auth |
-| `merge-pr <pr-id>` | Squash-complete the PR + sync local main + delete branches | `gh` or `az` auth |
+| `create-pr "<title>"` | Open a PR from current branch to `main` | `az` auth |
+| `merge-pr <pr-id>` | Squash-complete the PR + sync local main + delete branches | `az` auth |
 | `deploy <service> [test\|prod] [--watch]` | Run the service's CD pipeline | `az` auth + ADO read |
 | `add-service <name> [--public]` | Trigger the add-service pipeline (Copier + PR + new CD) | `az` auth + ADO write |
 | `clean-sample <service>` | Strip the Next.js Copier sample from a service folder | git only |
@@ -138,7 +140,7 @@ After approval. Dependency-ordered so each PLAN builds on what landed before:
 
 - **PLAN-001-foundation** — repo skeleton (`bin/`, `lib/`, `templates/`, `README.md` at root), `lib/_common.{sh,ps1}` with the portability helpers (parse org / project / repo from any git remote; parse `APP_NAME` from target repo's `.pipelines/variables/common.yaml`), `show_help` helper, the metadata convention. Adds **`noclickops update`** (script under `bin/`).
 - **PLAN-002-noclickops-and-installer** — `bin/noclickops.{sh,ps1}` lister (the discovery command), plus `install.{sh,ps1}` at the root that clones to `~/.noclickops/` and prints the shell-function snippet. Documents the Bash + PowerShell snippets in `README.md`.
-- **PLAN-003-pr-and-merge** — `create-pr` + `merge-pr`. Detect the target's git remote (GitHub vs ADO) and dispatch to `gh` or `az repos`. This is the first PLAN where multi-provider matters.
+- **PLAN-003-pr-and-merge** — `create-pr` + `merge-pr`. Wrap `az repos pr create` / `az repos pr update` (v1 targets Azure DevOps only — see Principles).
 - **PLAN-004-deploy** — `deploy`. Wraps `az pipelines run` against the target repo's CD pipeline; respects the `<repo>-<service>-CD` naming convention.
 - **PLAN-005-clean-sample** — `clean-sample`. Pure local; strips the Next.js Copier sample. Smallest of the new PLANs; good place to validate the metadata/help pattern on a near-trivial script.
 - **PLAN-006-sync-lovable** — `sync-lovable` + `templates/lovable/` (`Dockerfile` + `nginx.conf` carried over from FRT, with the `/parties`-style nginx fix applied). Renders templates into the target repo; generates `health.json`.
