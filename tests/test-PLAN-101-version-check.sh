@@ -207,10 +207,11 @@ assert_contains "$out" "rc=1" "derive_check_url: non-GitHub origin returns non-z
 
 rm -rf "$DERIVE_REPO"
 
-# 11. Hardcoded-identity sweep in version code.
-# Catches future regressions: no string like 'terchris/noclickops' should
-# appear in lib/version.{sh,ps1} (or any bin/lib).
-matches=$(grep -E 'terchris/noclickops' "$NCO_ROOT/lib/version.sh" "$NCO_ROOT/lib/version.ps1" 2>/dev/null || true)
-assert_eq "" "$matches" "no hardcoded 'terchris/noclickops' in lib/version.{sh,ps1}"
+# 11. Hardcoded GitHub account-name sweep in version code.
+# The repo name 'noclickops' is fine (a fork keeps the project name).
+# What we're catching is the OWNER name — moving owners shouldn't
+# require code changes.
+matches=$(grep -E '\bterchris\b' "$NCO_ROOT/lib/version.sh" "$NCO_ROOT/lib/version.ps1" 2>/dev/null || true)
+assert_eq "" "$matches" "no hardcoded 'terchris' account name in lib/version.{sh,ps1}"
 
 summary

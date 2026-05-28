@@ -109,6 +109,13 @@ nco_check_remote() {
     printf '%s %s\n' "$(date +%s)" "$remote" > "$cache" 2>/dev/null || true
     [ "$remote" != "$NCO_VERSION" ] && NCO_REMOTE_VERSION="$remote"
   fi
+
+  # Important: under `set -euo pipefail` (which bin/noclickops.sh sets),
+  # the trailing `[ a != b ] && X` returns non-zero when a == b. That
+  # propagates as the function's exit code and kills the calling script
+  # before the lister prints. Bit me in CI when local == remote on the
+  # first call (no cache). Explicit success here pins it.
+  return 0
 }
 
 # Print the "⬆ Update available" hint if a remote update is known.

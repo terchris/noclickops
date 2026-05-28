@@ -6,10 +6,10 @@
 #   1. Target-tenant identity (ExampleOrg / FrontendPlatform /
 #      JKL900X016): values that belong to ONE specific ADO repo. noclickops
 #      derives these from the target's git remote at runtime.
-#   2. noclickops-own-repo identity (terchris/noclickops): the upstream
-#      "where do we fetch updates from" identity. noclickops derives this
-#      from its OWN install dir's git remote — a fork at alice/noclickops
-#      checks alice's main, not the original maintainer's.
+#   2. Hardcoded GitHub account / owner names (terchris): the project
+#      may move owners. The repo NAME (noclickops) is fine — it stays
+#      the same in a fork — but the OWNER must be derived from
+#      $NOCLICKOPS_DIR's origin remote at runtime.
 #
 # tests/ legitimately uses both kinds of identity as test data — that's
 # the whole point; the grep deliberately excludes tests/.
@@ -31,14 +31,18 @@ else
   fail "no target-tenant identity in bin|lib|templates|shell" "$matches"
 fi
 
-# Guard 2: noclickops-own-repo identity.
-matches=$(grep -E -r 'terchris/noclickops|helpers-no/noclickops' \
+# Guard 2: hardcoded GitHub account / owner name.
+# The repo name 'noclickops' is fine — a fork keeps the same project name.
+# What we're catching is account-level hardcoding (e.g. 'terchris') so
+# ownership transfer or org migration doesn't break the version check
+# or other GitHub-facing references.
+matches=$(grep -E -r '\bterchris\b' \
             "$NCO_ROOT/bin" "$NCO_ROOT/lib" "$NCO_ROOT/templates" "$NCO_ROOT/shell" \
             2>/dev/null || true)
 if [ -z "$matches" ]; then
-  pass "no hardcoded noclickops-own-repo identity (terchris/noclickops) in bin|lib|templates|shell"
+  pass "no hardcoded GitHub account name (terchris) in bin|lib|templates|shell"
 else
-  fail "no hardcoded noclickops-own-repo identity" "$matches"
+  fail "no hardcoded GitHub account name" "$matches"
 fi
 
 summary

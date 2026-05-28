@@ -34,6 +34,13 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          # actions/checkout defaults to the PR's merge ref, which checks
+          # out a detached HEAD. The PLAN-002 install.sh test then clones
+          # from $NCO_ROOT and tries 'git pull --ff-only' — which fails
+          # without a current branch. Pin to the branch ref so HEAD is
+          # always on a real branch.
+          ref: ${{ github.head_ref || github.ref_name }}
 
       - name: Verify prerequisites
         run: |
