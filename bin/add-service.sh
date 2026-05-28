@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# bin/add-service.sh — trigger the Copier-based add-service pipeline.
+# bin/add-service.sh — trigger the Copier-based add-service pipeline, watch
+# it to completion, and merge the resulting scaffold PR.
 #
 # Pipeline contract (target-repo's '<AZDO_REPO>-add-service'):
 #   parameters:
@@ -11,11 +12,15 @@
 # The pipeline runs Copier, creates branch 'add-service-<name>', opens a PR
 # to main, and registers the new '<AZDO_REPO>-<name>-CD' pipeline.
 #
+# v1.3.0 (PLAN-102): observed runs are ~1 minute, not the ~1 hour PLAN-007a
+# assumed. With a fast pipeline, the default is now watch + auto-merge.
+# --no-merge restores PLAN-007a's fire-and-forget for callers that want it.
+#
 # --- noclickops metadata ---
 SCRIPT_NAME="add-service"
-SCRIPT_DESCRIPTION="Trigger the add-service pipeline to scaffold a new service."
-SCRIPT_USAGE="noclickops add-service <service-name> [--persistent-storage] [--no-public-endpoint]"
-SCRIPT_EXAMPLE="noclickops add-service test-myapp"
+SCRIPT_DESCRIPTION="Scaffold a new service (Copier pipeline + auto-merge the PR)."
+SCRIPT_USAGE="noclickops add-service <service-name> [--persistent-storage] [--no-public-endpoint] [--no-merge]"
+SCRIPT_EXAMPLE="noclickops add-service test-myapp --persistent-storage"
 SCRIPT_CATEGORY="service-lifecycle"
 # --- end metadata ---
 
@@ -39,12 +44,14 @@ shift
 # they want different.
 persistent_storage="false"
 public_endpoint="true"
+no_merge=0
 
 for a in "$@"; do
   case "$a" in
     --persistent-storage) persistent_storage="true" ;;
     --no-public-endpoint) public_endpoint="false" ;;
-    -*)  die "Unknown flag: $a (expected --persistent-storage or --no-public-endpoint)" ;;
+    --no-merge)           no_merge=1 ;;
+    -*)  die "Unknown flag: $a (expected --persistent-storage, --no-public-endpoint, or --no-merge)" ;;
     *)   die "Unexpected positional argument: $a (only the service name is positional)" ;;
   esac
 done
@@ -84,18 +91,84 @@ run_url="$AZDO_ORG_URL/$AZDO_PROJECT/_build/results?buildId=$run_id"
 log_success "Started run $run_id"
 echo "  $run_url"
 
-# Fire-and-forget: add-service typically takes ~1h (provisions infra, runs
-# Copier, opens a PR, creates the new CD pipeline). Watching that from a
-# terminal is hostile; the user comes back later with 'noclickops status'.
+# --- Fire-and-forget escape hatch (PLAN-007a behavior) ---
+if [ "$no_merge" -eq 1 ]; then
+  echo ""
+  echo "Fire-and-forget mode (--no-merge). The shell returns now."
+  echo ""
+  echo "Check progress any time:"
+  echo "  noclickops status $run_id"
+  echo ""
+  echo "When the run completes, the pipeline will have opened PR 'Add service $service'."
+  echo "Then merge it manually:"
+  echo "  noclickops merge-pr <pr-id>"
+  exit 0
+fi
+
+# --- Watch the pipeline (default) ---
+log_step "Watching pipeline (poll every 5s, 10 min cap)"
+# 10 min = 120 iterations × 5s. Typical runs are ~1 min; this is insurance
+# against package-install slowdowns and the like.
+st=""
+for _ in $(seq 1 120); do
+  st="$(az pipelines runs show --id "$run_id" --query status -o tsv 2>/dev/null || echo "")"
+  if [ "$st" = "completed" ]; then
+    break
+  fi
+  sleep 5
+done
+
+if [ "$st" != "completed" ]; then
+  log_warn "Pipeline didn't complete within 10 minutes (status: $st). It keeps running."
+  echo "  Re-attach later: noclickops status $run_id"
+  echo "  Then merge the PR it opens: noclickops merge-pr <pr-id>"
+  exit 1
+fi
+
+result="$(az pipelines runs show --id "$run_id" --query result -o tsv)"
+if [ "$result" != "succeeded" ]; then
+  die "Pipeline finished with result '$result'. See: $run_url"
+fi
+log_success "Pipeline succeeded (run $run_id)."
+
+# --- Find the scaffold PR ---
+# The pipeline yaml hard-codes 'branchName: add-service-<serviceName>', so
+# the source branch is deterministic.
+log_step "Looking up the scaffold PR (source: add-service-$service)"
+pr_id="$(az repos pr list --status active \
+  --query "[?sourceRefName=='refs/heads/add-service-$service'] | [0].pullRequestId" \
+  -o tsv 2>/dev/null || true)"
+
+if [ -z "$pr_id" ] || [ "$pr_id" = "None" ]; then
+  log_warn "No active PR found for branch add-service-$service."
+  log_warn "Either Copier had nothing to commit, or the PR was completed/abandoned out-of-band."
+  log_warn "Check the pipeline log:  $run_url"
+  exit 0
+fi
+log_info "Found PR #$pr_id"
+
+# --- Squash-merge via shared helper ---
+if ! squash_complete_pr "$pr_id"; then
+  log_error "Failed to merge PR #$pr_id."
+  echo "  PR URL: $AZDO_ORG_URL/$AZDO_PROJECT/_git/$AZDO_REPO/pullrequest/$pr_id"
+  exit 1
+fi
+
+# --- Sync local main ---
+log_step "Syncing local main"
+# add-service is normally run from main (we never branched). Fetch + ff.
+git -C "$TARGET_REPO" fetch --prune
+if git -C "$TARGET_REPO" merge --ff-only origin/main >/dev/null 2>&1; then
+  log_success "Local main is in sync with origin/main."
+else
+  log_warn "Local main can't fast-forward — it has diverged from origin/main."
+  echo "  If local main has nothing worth keeping:  git reset --hard origin/main"
+fi
+
 echo ""
-echo "This pipeline takes ~1 hour. The shell returns now."
+log_success "Done. services/$service is on main."
 echo ""
-echo "Check progress any time:"
-echo "  noclickops status $run_id"
-echo ""
-echo "When the run completes, the pipeline will have opened PR 'Add service $service'."
-echo "Then:"
-echo "  noclickops merge-pr <pr-id>                          # squash + sync"
-echo "  noclickops clean-sample $service                      # (if removing the sample)"
-echo "  noclickops sync-lovable <lovable-repo> $service       # (if syncing a Lovable app)"
-echo "  noclickops deploy $service test --watch               # deploy to test"
+echo "Next steps:"
+echo "  noclickops clean-sample $service                # strip the Next.js placeholder"
+echo "  noclickops sync-lovable <lovable-repo> $service # (if syncing a Lovable app)"
+echo "  noclickops deploy $service test --watch         # deploy to test"

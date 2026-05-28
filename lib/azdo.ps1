@@ -55,3 +55,35 @@ function Require-Az {
   & az devops configure --defaults `
       organization=$($script:AZDO_ORG_URL) project=$($script:AZDO_PROJECT) *> $null
 }
+
+# Squash-complete a PR (v1.3.0). Shared between merge-pr and add-service's
+# auto-merge path. Returns $true on completion, $false otherwise.
+function Squash-CompletePr {
+  param([Parameter(Mandatory)][string]$PrId)
+  Log-Step -Message "Completing PR #$PrId (squash, delete source branch)"
+  & az repos pr update --id $PrId --status completed `
+      --squash true --delete-source-branch true `
+      --query status -o tsv *> $null
+  if ($LASTEXITCODE -ne 0) {
+    Log-Error -Message "az repos pr update failed for PR #$PrId"
+    return $false
+  }
+
+  Log-Info -Message "Waiting for completion..."
+  $st = ''
+  for ($i = 0; $i -lt 30; $i++) {
+    $st = & az repos pr show --id $PrId --query status -o tsv
+    if ($st -eq 'completed') { break }
+    if ($st -eq 'abandoned') {
+      Log-Error -Message "PR #$PrId was abandoned."
+      return $false
+    }
+    Start-Sleep -Seconds 4
+  }
+  if ($st -ne 'completed') {
+    Log-Error -Message "PR #$PrId did not complete (status: $st). Check branch policies."
+    return $false
+  }
+  Log-Success -Message "PR #$PrId completed."
+  return $true
+}

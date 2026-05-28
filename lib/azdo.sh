@@ -67,3 +67,45 @@ require_az() {
       organization="$AZDO_ORG_URL" project="$AZDO_PROJECT" \
       >/dev/null 2>&1 || true
 }
+
+# Squash-complete an Azure DevOps PR. Polls until 'completed' (or returns
+# non-zero on 'abandoned' or 2-minute timeout). Caller handles local-main
+# sync afterwards.
+#
+# Squash is required by the target repo's branch policy in v1's ADO setup;
+# the API default of 'no-fast-forward' would fail policy.
+#
+# Returns:
+#   0 — PR completed cleanly.
+#   1 — PR was abandoned, didn't complete in time, or az failed.
+#
+# Shared by bin/merge-pr.sh (since v1) and bin/add-service.sh (since v1.3.0).
+squash_complete_pr() {
+  local pr_id="$1"
+  [ -n "$pr_id" ] || { log_error "squash_complete_pr: needs a PR id"; return 1; }
+
+  log_step "Completing PR #$pr_id (squash, delete source branch)"
+  az repos pr update --id "$pr_id" --status completed \
+      --squash true --delete-source-branch true \
+      --query status -o tsv >/dev/null \
+    || { log_error "az repos pr update failed for PR #$pr_id"; return 1; }
+
+  log_info "Waiting for completion..."
+  local st=""
+  local i
+  for i in $(seq 1 30); do
+    st="$(az repos pr show --id "$pr_id" --query status -o tsv 2>/dev/null || true)"
+    [ "$st" = "completed" ] && break
+    if [ "$st" = "abandoned" ]; then
+      log_error "PR #$pr_id was abandoned."
+      return 1
+    fi
+    sleep 4
+  done
+  if [ "$st" != "completed" ]; then
+    log_error "PR #$pr_id did not complete (status: $st). Check branch policies."
+    return 1
+  fi
+  log_success "PR #$pr_id completed."
+  return 0
+}

@@ -31,24 +31,9 @@ cd "$TARGET_REPO"
 derive_azdo_context "$TARGET_REPO"
 require_az
 
-log_step "Completing PR #$pr_id (squash, delete source branch)"
-# Squash is required by the target repo's branch policy in v1's ADO setup;
-# the API default of 'no-fast-forward' would fail policy.
-az repos pr update --id "$pr_id" --status completed \
-    --squash true --delete-source-branch true \
-    --query status -o tsv >/dev/null
-
-# PR completion is async — poll for up to ~2 minutes.
-log_info "Waiting for completion..."
-st=""
-for _ in $(seq 1 30); do
-  st="$(az repos pr show --id "$pr_id" --query status -o tsv)"
-  [ "$st" = "completed" ] && break
-  [ "$st" = "abandoned" ] && die "PR #$pr_id was abandoned."
-  sleep 4
-done
-[ "$st" = "completed" ] || die "PR #$pr_id did not complete (status: $st). Check branch policies."
-log_success "PR #$pr_id completed."
+# Shared squash-complete + wait logic (since v1.3.0 — same helper used by
+# bin/add-service.sh's auto-merge path).
+squash_complete_pr "$pr_id" || exit 1
 
 # Sync local main; delete the local feature branch on clean ff.
 feature="$(git rev-parse --abbrev-ref HEAD)"

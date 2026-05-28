@@ -37,21 +37,8 @@ Set-Location $script:TARGET_REPO
 Derive-AzdoContext -TargetRepo $script:TARGET_REPO
 Require-Az
 
-Log-Step -Message "Completing PR #$PrId (squash, delete source branch)"
-& az repos pr update --id $PrId --status completed `
-    --squash true --delete-source-branch true `
-    --query status -o tsv *> $null
-
-Log-Info -Message "Waiting for completion..."
-$st = ''
-for ($i = 0; $i -lt 30; $i++) {
-  $st = & az repos pr show --id $PrId --query status -o tsv
-  if ($st -eq 'completed') { break }
-  if ($st -eq 'abandoned') { Die -Message "PR #$PrId was abandoned." }
-  Start-Sleep -Seconds 4
-}
-if ($st -ne 'completed') { Die -Message "PR #$PrId did not complete (status: $st). Check branch policies." }
-Log-Success -Message "PR #$PrId completed."
+# Shared squash-complete (v1.3.0).
+if (-not (Squash-CompletePr -PrId $PrId)) { exit 1 }
 
 $feature = & git rev-parse --abbrev-ref HEAD
 Log-Step -Message "Syncing local main and cleaning up"

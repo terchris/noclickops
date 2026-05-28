@@ -14,11 +14,14 @@ echo "── PLAN-007: add-service ──"
 out=$("$NCO_ROOT/bin/noclickops.sh" 2>&1)
 assert_contains "$out" "add-service" "lister shows add-service"
 
-# 2. --help.
+# 2. --help (updated for v1.3.0 — now mentions --no-merge as the opt-out
+# from the new default watch+merge behavior).
 out=$("$NCO_ROOT/bin/add-service.sh" --help 2>&1)
 assert_contains "$out" "Category: service-lifecycle" "add-service --help category"
 assert_contains "$out" "--persistent-storage"        "add-service --help shows persistent-storage flag"
 assert_contains "$out" "--no-public-endpoint"        "add-service --help shows no-public-endpoint flag"
+assert_contains "$out" "--no-merge"                  "add-service --help shows --no-merge flag (v1.3.0)"
+assert_contains "$out" "auto-merge"                  "add-service --help description mentions auto-merge"
 
 # 3. No args.
 out=$("$NCO_ROOT/bin/add-service.sh" 2>&1); rc=$?
@@ -80,5 +83,21 @@ out=$(bash -c "
 ")
 assert_eq "some-app-add-service" "$out" "pipeline name = AZDO_REPO-add-service"
 rm -rf "$repo"
+
+# --- v1.3.0 (PLAN-102): --no-merge flag accepted ---
+
+# 12. Passing --no-merge to a still-pre-az validation context should not
+# trigger 'Unknown flag'. Use the 'outside-git-repo' path so the script
+# stops before az without rejecting the flag.
+out=$(cd /tmp && "$NCO_ROOT/bin/add-service.sh" myservice --no-merge 2>&1); rc=$?
+assert_eq "1" "$rc"                                  "add-service --no-merge: still fails (outside repo) but for the right reason"
+assert_not_contains "$out" "Unknown flag"            "add-service --no-merge is NOT rejected as unknown"
+assert_contains "$out" "Not inside a git repository" "add-service --no-merge reaches the TARGET_REPO check"
+
+# 13. --watch is REMOVED (was rejected in v1.2.x; still rejected in v1.3.0).
+# Auto-watch is the default; --no-merge is the opt-out. There's no --watch.
+out=$(cd /tmp && "$NCO_ROOT/bin/add-service.sh" myservice --watch 2>&1); rc=$?
+assert_eq "1" "$rc"                       "add-service --watch (still removed) exit 1"
+assert_contains "$out" "Unknown flag"     "add-service --watch (still removed) rejected"
 
 summary

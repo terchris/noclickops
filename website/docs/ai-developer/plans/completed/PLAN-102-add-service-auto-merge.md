@@ -5,7 +5,7 @@
 > - [WORKFLOW.md](../../WORKFLOW.md)
 > - [PLANS.md](../../PLANS.md)
 
-## Status: Backlog
+## Status: Completed 2026-05-28
 
 **Goal**: Make `noclickops add-service <name>` complete the full scaffold-to-main flow in one command — trigger the pipeline, wait for it to succeed, and merge the resulting PR — instead of fire-and-forget. Saves one manual `noclickops merge-pr <id>` step and closes the loop.
 
@@ -135,3 +135,39 @@ noclickops add-service <service-name> [--persistent-storage] [--no-public-endpoi
 - **Branch name derivation**: the add-service pipeline yaml in target repos uses `branchName: "add-service-${{ parameters.serviceName }}"`. If a target repo customises this, the PR-lookup-by-branch breaks. Future-proof by also accepting a `--pr-id` flag for manual override.
 - **Timeout choice**: 10 minutes is generous; observed runs are ~1 min. If a future SP/Copier slowdown bumps typical times into the 2-3 min range, this still works. If it ever runs 8+ min routinely, revisit; the watch UX gets unpleasant past 5 min.
 - **Watching from a `curl … | bash` install context (no shell function)**: works fine — the dispatcher (v1.1.0) exec's `add-service.sh` which handles its own loop. No special shell-integration needed.
+
+---
+
+## Completion notes (2026-05-28)
+
+Single-PR ship on `feat/v1.3.0-add-service-auto-merge`.
+
+**Refactor**: pulled the squash-complete + poll-until-completed logic out of `bin/merge-pr.sh` into `lib/azdo.sh::squash_complete_pr`. Returns 0/1 instead of dying so callers control the failure path. Both `merge-pr.sh` and the new `add-service.sh` auto-merge path call it — single source of truth for "how do we squash-merge an ADO PR".
+
+**`bin/add-service.{sh,ps1}` changes**:
+
+- New default flow: trigger → watch (5s poll, 10 min cap) → find PR by source branch `add-service-<name>` → `squash_complete_pr` → `git fetch --prune` + `git merge --ff-only origin/main`.
+- New `--no-merge` flag: opt-out → PLAN-007a's fire-and-forget behavior.
+- Failure handling:
+  - Pipeline times out (10 min) → exit 1 with "re-attach later" hint.
+  - Pipeline result != succeeded → exit 1 with the run URL.
+  - No active PR found for `add-service-<name>` → warning + exit 0 (Copier had nothing to commit; informational, not an error).
+  - Merge step fails → exit 1 with PR URL.
+
+**Tests** (`tests/test-PLAN-007-add-service.sh`):
+
+| Group | New count | Highlight |
+| --- | --- | --- |
+| `--help` shows new flags + description | +2 | `--no-merge`, `auto-merge` in description |
+| `--no-merge` accepted | +3 | Not rejected as unknown flag; reaches TARGET_REPO check |
+| `--watch` STILL rejected | +2 | Auto-watch is default; `--watch` remains unknown |
+
+**Aggregate**: `tests/run-all.sh` is now **308 tests, 0 failed, 0 skipped** (was 301 after v1.2.1).
+
+**`merge-pr.sh` regression check** — the existing PLAN-003 tests still pass with the refactored code, since the `squash_complete_pr` helper behaves identically to the inline code it replaced.
+
+**PowerShell port** unverified on Mac as usual. The `Squash-CompletePr` function mirrors the bash helper; the `add-service.ps1` mirrors the watch + merge flow.
+
+**version.txt** → `1.3.0` (semver minor — new default behavior + `--no-merge` opt-out).
+
+**Real-world testability**: the next `noclickops add-service <name>` against the FRT repo (or any FRT-shaped ADO repo) collapses into ONE command end-to-end. Previously: 3 commands (`add-service` → wait → `status` to find PR id → `merge-pr`). Now: just `add-service`.
