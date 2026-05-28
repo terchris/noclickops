@@ -1,11 +1,22 @@
 #!/usr/bin/env bash
-# bin/noclickops.sh — list all noclickops commands, grouped by category.
+# bin/noclickops.sh — dispatcher AND lister.
+#
+# Two modes:
+#   noclickops                    → list all available commands (lister)
+#   noclickops <cmd> [args...]    → exec bin/<cmd>.sh with the remaining args
+#   noclickops -h | --help        → show this script's metadata help
+#
+# A sibling `bin/noclickops` symlink (no .sh) points here, so PATH-resolved
+# invocation (with `~/.noclickops/bin` in PATH — install.sh wires that in)
+# works from any shell context, interactive or not. The legacy
+# shell-function-based dispatcher in `shell/init.sh` is kept for installs
+# that already source it from rc; new installs use PATH only.
 #
 # --- noclickops metadata ---
 SCRIPT_NAME="noclickops"
-SCRIPT_DESCRIPTION="List all noclickops commands grouped by category."
+SCRIPT_DESCRIPTION="List all noclickops commands, or dispatch to a subcommand."
 SCRIPT_USAGE="noclickops [<subcommand> [args...]]"
-SCRIPT_EXAMPLE="noclickops"
+SCRIPT_EXAMPLE="noclickops merge-pr 4810"
 SCRIPT_CATEGORY="meta"
 # --- end metadata ---
 
@@ -18,12 +29,31 @@ _dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "$_dir/../lib/version.sh"
 unset _dir
 
-nco_load_version
-nco_check_remote   # silently no-ops on cache miss + network failure
+# --- arg handling ---
+# --help wins. Then if a subcommand was given, dispatch. Otherwise fall
+# through to lister mode.
 
 case "${1:-}" in
   -h|--help) show_help "$0"; exit 0 ;;
 esac
+
+if [ "${1:-}" != "" ]; then
+  cmd="$1"
+  shift
+  script="$BIN_DIR/$cmd.sh"
+  if [ ! -x "$script" ]; then
+    log_error "no such command '$cmd' (try: noclickops)"
+    exit 1
+  fi
+  # exec so signals (Ctrl-C, SIGTERM) reach the subcommand directly without
+  # bash trapping them — important for --follow and interactive shell.
+  exec "$script" "$@"
+fi
+
+# --- lister mode (no subcommand given) ---
+
+nco_load_version
+nco_check_remote   # silently no-ops on cache miss + network failure
 
 # Section buffers — flat strings, bash 3.2 safe (no associative arrays).
 _buf_meta=""

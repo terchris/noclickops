@@ -102,33 +102,41 @@ case "${SHELL:-}" in
     ;;
 esac
 
-SOURCE_LINE='[ -f "$HOME/.noclickops/shell/init.sh" ] && . "$HOME/.noclickops/shell/init.sh"'
+# From v1.1.0: PATH-add is the primary mechanism. Resolves `noclickops`
+# from any shell context (interactive or not) — scripts, cron, CI, my
+# AI tool, etc. The legacy shell-function source line stays supported
+# for existing installs (the function continues to work), but new
+# installs only need the PATH line.
+PATH_LINE='[ -d "$HOME/.noclickops/bin" ] && case ":$PATH:" in *:"$HOME/.noclickops/bin":*) ;; *) export PATH="$HOME/.noclickops/bin:$PATH" ;; esac'
 
 # --- Wire into rc file (idempotent) ---------------------------------------
 
 step "Wiring 'noclickops' into your shell ($RC_SHELL → $RC_FILE)"
 
-# Use a fixed grep marker so we detect prior installs even if user edited
-# their copy of the source line.
+# Detect any prior wiring — either the v1.0.x source-line OR the v1.1.x
+# PATH-line. Either is enough; don't double-wire.
 ALREADY_INSTALLED=0
-if [ -f "$RC_FILE" ] && grep -q ".noclickops/shell/init.sh" "$RC_FILE" 2>/dev/null; then
+if [ -f "$RC_FILE" ] && grep -qE '\.noclickops/(bin|shell/init\.sh)' "$RC_FILE" 2>/dev/null; then
   ALREADY_INSTALLED=1
 fi
 
 if [ "$ALREADY_INSTALLED" -eq 1 ]; then
-  ok "Shell function is already wired into $RC_FILE — leaving it alone."
+  ok "noclickops is already wired into $RC_FILE — leaving it alone."
+  ok "If you upgraded from v1.0.x and want PATH-based resolution in non-interactive"
+  ok "shells too, add this line to $RC_FILE:"
+  printf "    %s\n" "$PATH_LINE"
 else
   info "Will append to $RC_FILE:"
-  printf "    %s\n" "$SOURCE_LINE"
+  printf "    %s\n" "$PATH_LINE"
   if ask_yes_no "Append now? [Y/n] " "y"; then
     {
-      printf "\n# noclickops — typeable shell function (installed %s)\n" "$(date +%Y-%m-%d)"
-      printf "%s\n" "$SOURCE_LINE"
+      printf "\n# noclickops — put bin on PATH (installed %s)\n" "$(date +%Y-%m-%d)"
+      printf "%s\n" "$PATH_LINE"
     } >> "$RC_FILE"
     ok "Appended."
   else
     warn "Skipped. Paste this line into $RC_FILE manually when ready:"
-    printf "    %s\n" "$SOURCE_LINE"
+    printf "    %s\n" "$PATH_LINE"
   fi
 fi
 

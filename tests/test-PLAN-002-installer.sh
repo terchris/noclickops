@@ -33,9 +33,9 @@ assert_file_exists "$INSTALL_DIR/bin/update.sh"     "install dir has bin/update.
 assert_file_exists "$INSTALL_DIR/lib/paths.sh"      "install dir has lib/paths.sh"
 assert_file_exists "$INSTALL_DIR/shell/init.sh"     "install dir has shell/init.sh"
 
-# 3. rc file has exactly one source line.
-count=$(grep -c "noclickops/shell/init.sh" "$TEST_ROOT/home/.zshrc")
-assert_eq "1" "$count" "rc file has source line exactly once after first install"
+# 3. rc file has exactly one wiring line (PATH-based from v1.1.0).
+count=$(grep -c '\.noclickops/bin' "$TEST_ROOT/home/.zshrc")
+assert_eq "1" "$count" "rc file has PATH line exactly once after first install"
 
 # 4. Re-running the installer is idempotent: pulls, leaves rc alone.
 out=$(
@@ -50,9 +50,9 @@ assert_contains "$out" "already installed" "install.sh re-run detects existing i
 assert_contains "$out" "already wired"     "install.sh re-run leaves rc untouched"
 assert_not_contains "$out" "Welcome to"    "welcome NOT re-shown on re-install"
 
-# 5. rc file still has exactly one source line after re-run.
-count=$(grep -c "noclickops/shell/init.sh" "$TEST_ROOT/home/.zshrc")
-assert_eq "1" "$count" "rc file source line still unique after re-install"
+# 5. rc file still has exactly one PATH line after re-run.
+count=$(grep -c '\.noclickops/bin' "$TEST_ROOT/home/.zshrc")
+assert_eq "1" "$count" "rc file PATH line still unique after re-install"
 
 # 6. Sourcing init.sh enables the typeable `noclickops` form.
 out=$(NOCLICKOPS_DIR="$INSTALL_DIR" bash -c "
@@ -81,6 +81,30 @@ out="$("$INSTALL_DIR/bin/noclickops.sh" 2>&1)"
 assert_contains "$out" "Meta"               "lister shows Meta section"
 # In the freshly-installed repo (from this commit), Git/Deploy/etc. will be
 # present too. So we only check that empty-section logic exists structurally.
+
+# 9a. (v1.1.0) bin/noclickops symlink exists and is executable.
+assert_file_exists "$INSTALL_DIR/bin/noclickops" "bin/noclickops symlink present (PATH-resolvable name)"
+if [ -x "$INSTALL_DIR/bin/noclickops" ]; then
+  pass "bin/noclickops is executable"
+else
+  fail "bin/noclickops is executable"
+fi
+
+# 9b. (v1.1.0) PATH-based dispatch: invoking the symlink with no args
+# should show the lister; with --help should show metadata; with a real
+# subcommand should exec it.
+out=$("$INSTALL_DIR/bin/noclickops" 2>&1)
+assert_contains "$out" "noclickops v"        "PATH-dispatched bin/noclickops shows lister with version"
+
+out=$("$INSTALL_DIR/bin/noclickops" --help 2>&1)
+assert_contains "$out" "Category: meta"      "PATH-dispatched bin/noclickops --help shows metadata"
+
+out=$("$INSTALL_DIR/bin/noclickops" update --help 2>&1)
+assert_contains "$out" "Pull the latest"     "PATH-dispatched noclickops update --help dispatches to update.sh"
+
+out=$("$INSTALL_DIR/bin/noclickops" bogus 2>&1); rc=$?
+assert_eq "1" "$rc"                          "PATH-dispatched noclickops bogus exit 1"
+assert_contains "$out" "no such command"     "PATH-dispatched noclickops bogus shows friendly error"
 
 rm -rf "$TEST_ROOT"
 
