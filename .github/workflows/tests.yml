@@ -1,0 +1,47 @@
+# tests.yml — run the bash test suite on every push to main + every PR.
+#
+# Contract (set up in PLAN-100):
+#   `bash tests/run-all.sh` is the single entry point. Exit 0 = all
+#   tests passed. Exit 1 = anything failed. No az / network / auth
+#   required — every fixture is built in mktemp -d.
+#
+# ubuntu-latest already has git + bash + rsync + python3, the four
+# deps the suite needs.
+
+name: tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# When new commits push to a branch with an in-progress run, cancel the
+# older run. Saves CI minutes on rapid pushes.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: bash tests/run-all.sh
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Verify prerequisites
+        run: |
+          set -e
+          bash --version | head -1
+          rsync --version | head -1
+          python3 --version
+          git --version
+
+      - name: Run test suite
+        run: bash tests/run-all.sh

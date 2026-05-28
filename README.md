@@ -1,5 +1,7 @@
 # noclickops
 
+[![tests](https://github.com/terchris/noclickops/actions/workflows/tests.yml/badge.svg)](https://github.com/terchris/noclickops/actions/workflows/tests.yml)
+
 A portable script suite that wraps the operations a developer does every day on Azure DevOps projects — open PRs, scaffold new services, deploy them, tail logs, open a shell in a running container — into one command per task. **No clickops** means no clicking around the ADO portal or Azure portal for routine work.
 
 Installed once per developer machine; operates on whichever git repo your shell is currently in. Every command derives the target repo's identity from `git remote get-url origin` at call time, so the same commands work in every supported repo on your machine with no per-repo config.
@@ -107,7 +109,6 @@ The remote check is cached for 1 hour to keep the lister snappy. Failures (netwo
 
 - **PowerShell ports** ship for every script but are **unverified on macOS** (no `pwsh` on the maintainer's machine). The Bash side is the validated surface.
 - **`sync-lovable` is bash-only.** The PowerShell port is a stub that errors with "use Git Bash or WSL" — `rsync`'s exclude+delete semantics don't safely map to `robocopy` / `Copy-Item` without thorough testing.
-- **No GitHub Action yet.** The test suite (`bash tests/run-all.sh`) is CI-shaped (single entry point, exit-code result, zero auth/network needed), but no `.github/workflows/` ships in v1.0.0.
 - **End-to-end integration tests** (real `az`, real PRs, real pipelines) are deferred. Manual gating remains — the next real `noclickops <cmd>` against a live target is the live validation.
 
 ## Forks
