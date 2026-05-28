@@ -29,18 +29,30 @@ valid_category() {
   return 1
 }
 
+# Extract a single SCRIPT_* field. Strips the outermost matching quote pair
+# (single or double) if present — values can embed the other quote style
+# (e.g. SCRIPT_USAGE='cmd "arg"') without breaking the parser.
+_extract_field() {
+  local file="$1" field="$2" raw
+  raw="$(grep -E "^${field}=" "$file" | head -1 | sed -E "s/^${field}=//")"
+  case "$raw" in
+    \"*\") raw="${raw#\"}"; raw="${raw%\"}" ;;
+    \'*\') raw="${raw#\'}"; raw="${raw%\'}" ;;
+  esac
+  printf '%s' "$raw"
+}
+
 # Parse SCRIPT_* fields from a script file.
 # Sets: parsed_name, parsed_description, parsed_usage, parsed_example, parsed_category.
 parse_metadata() {
   local file="$1"
   [ -f "$file" ] || { log_error "metadata: file not found: $file"; return 1; }
 
-  # shellcheck disable=SC2155
-  parsed_name="$(grep -E '^SCRIPT_NAME=' "$file" | head -1 | sed -E 's/^SCRIPT_NAME="?([^"]*)"?.*$/\1/')"
-  parsed_description="$(grep -E '^SCRIPT_DESCRIPTION=' "$file" | head -1 | sed -E 's/^SCRIPT_DESCRIPTION="?([^"]*)"?.*$/\1/')"
-  parsed_usage="$(grep -E '^SCRIPT_USAGE=' "$file" | head -1 | sed -E 's/^SCRIPT_USAGE="?([^"]*)"?.*$/\1/')"
-  parsed_example="$(grep -E '^SCRIPT_EXAMPLE=' "$file" | head -1 | sed -E 's/^SCRIPT_EXAMPLE="?([^"]*)"?.*$/\1/')"
-  parsed_category="$(grep -E '^SCRIPT_CATEGORY=' "$file" | head -1 | sed -E 's/^SCRIPT_CATEGORY="?([^"]*)"?.*$/\1/')"
+  parsed_name="$(_extract_field "$file" SCRIPT_NAME)"
+  parsed_description="$(_extract_field "$file" SCRIPT_DESCRIPTION)"
+  parsed_usage="$(_extract_field "$file" SCRIPT_USAGE)"
+  parsed_example="$(_extract_field "$file" SCRIPT_EXAMPLE)"
+  parsed_category="$(_extract_field "$file" SCRIPT_CATEGORY)"
 }
 
 # Print --help for the given script based on its metadata.
