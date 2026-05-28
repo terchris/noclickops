@@ -12,9 +12,11 @@ Installed once per developer machine; operates on whichever git repo your shell 
 curl -fsSL https://raw.githubusercontent.com/terchris/noclickops/main/install.sh | bash
 ```
 
-The installer clones noclickops to `~/.noclickops`, appends a one-line `source` to your `~/.zshrc` (or `~/.bashrc`), and prints a welcome message. Restart your shell — or `source ~/.zshrc` — and `noclickops` is on your PATH.
+The installer clones noclickops to `~/.noclickops`, adds `~/.noclickops/bin` to your `~/.zshrc` (or `~/.bashrc`) PATH, and prints a welcome message. Restart your shell — or `source ~/.zshrc` — and `noclickops` is on your PATH and resolves in any shell context: interactive, scripts, CI, anywhere.
 
 Re-running the installer is idempotent: it pulls the latest if already installed and never duplicates the rc-file line.
+
+> **Upgrading from v1.0.x**: existing installs use a shell-function-based dispatcher loaded from `shell/init.sh`. That still works after `noclickops update`. To switch to the v1.1.0 PATH-based mechanism (so `noclickops` resolves outside interactive shells too), re-run `install.sh` — it'll add the PATH line and tell you what to remove.
 
 > **Windows / native PowerShell.** An `install.ps1` exists and mirrors the Bash flow, but the maintainer can't currently verify PowerShell scripts. For now we recommend running the Bash installer via **Git Bash** or **WSL**. If you want to try the native path, please file issues for anything that breaks.
 
