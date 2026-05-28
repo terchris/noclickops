@@ -42,6 +42,67 @@ scaffold_nextjs_sample() {
   echo "export default {}" > "$d/next.config.mjs"
 }
 
+# Add the repo-level .pipelines/variables/{common,test,prod}.yaml files,
+# mirroring the FRT layout. Usage: add_pipeline_variables <repo>
+add_pipeline_variables() {
+  local repo="$1"
+  mkdir -p "$repo/.pipelines/variables"
+  cat > "$repo/.pipelines/variables/common.yaml" <<'EOF'
+variables:
+  APP_NAME: "frt900x016"
+  acrServiceConnection: "myteam-frontend-acr-sp"
+  CONTAINER_REGISTRY_NAME: "acrshareduw"
+EOF
+  cat > "$repo/.pipelines/variables/test.yaml" <<'EOF'
+variables:
+  ENVIRONMENT: "test"
+  SUBSCRIPTION_ID: "3aec5ff4-d5d3-47d3-b860-c36f2bf3ca2d"
+  COMMON_RESOURCE_GROUP_NAME: "rg-test-myteam-frontend-common"
+EOF
+  cat > "$repo/.pipelines/variables/prod.yaml" <<'EOF'
+variables:
+  ENVIRONMENT: "prod"
+  SUBSCRIPTION_ID: ""
+  COMMON_RESOURCE_GROUP_NAME: "rg-prod-myteam-frontend-common"
+EOF
+}
+
+# Add the service-level .pipelines/variables/{test,prod}.yaml inside the
+# service folder. Usage: add_service_variables <repo> <service>
+add_service_variables() {
+  local repo="$1" service="$2"
+  local d="$repo/services/$service/.pipelines/variables"
+  mkdir -p "$d"
+  cat > "$d/test.yaml" <<EOF
+variables:
+  ENABLE_PUBLIC_ENDPOINT: "true"
+  PERSISTENT_STORAGE: "false"
+  SERVICE_NAME: $service
+  SERVICE_PORT: 3000
+  SERVICE_CPU: 0.5
+  SERVICE_MEMORY: 1Gi
+  SERVICE_MIN_REPLICAS: 0
+  SERVICE_MAX_REPLICAS: 1
+  SERVICE_HEALTH_CHECK_PATH: "/health"
+  SERVICE_HEALTH_PROBE_PORT: 3000
+  IMAGE_TAG: '\$(Build.BuildNumber)'
+EOF
+  cat > "$d/prod.yaml" <<EOF
+variables:
+  ENABLE_PUBLIC_ENDPOINT: "true"
+  PERSISTENT_STORAGE: "false"
+  SERVICE_NAME: $service
+  SERVICE_PORT: 3000
+  SERVICE_CPU: 0.5
+  SERVICE_MEMORY: 1Gi
+  SERVICE_MIN_REPLICAS: 1
+  SERVICE_MAX_REPLICAS: 3
+  SERVICE_HEALTH_CHECK_PATH: "/health"
+  SERVICE_HEALTH_PROBE_PORT: 3000
+  IMAGE_TAG: '\$(Build.BuildNumber)'
+EOF
+}
+
 # Create a fake Lovable source repo with a bare remote alongside.
 # Usage: src=$(make_lovable_source)
 # Cleanup: rm -rf "$(dirname "$src")"   # parent dir also holds the bare remote
