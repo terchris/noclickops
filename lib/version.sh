@@ -23,7 +23,7 @@ NCO_VERSION_CACHE_TTL="${NCO_VERSION_CACHE_TTL:-3600}"  # 1 hour
 # Derive the version-check URL from $NOCLICKOPS_DIR's origin remote. The
 # whole noclickops portability principle is "no hardcoded identity" — that
 # rule applies to noclickops's OWN repo identity too. A fork at
-# alice/noclickops checks alice's main, not terchris's.
+# alice/noclickops checks alice's main, not the upstream owner's.
 #
 # Supports:
 #   https://github.com/<user>/<repo>(.git)?     → raw.githubusercontent.com/<user>/<repo>/main/version.txt
