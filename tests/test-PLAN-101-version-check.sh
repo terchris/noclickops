@@ -11,13 +11,17 @@ echo "── PLAN-101: version check ──"
 
 # --- nco_load_version ---
 
+# Read whatever version.txt says — keeps the test version-agnostic so
+# we don't have to bump it every time we cut a release.
+expected_version=$(tr -d '[:space:]' < "$NCO_ROOT/version.txt")
+
 out=$(bash -c "
   . '$NCO_ROOT/lib/paths.sh'
   . '$NCO_ROOT/lib/version.sh'
   nco_load_version
   echo \"\$NCO_VERSION\"
 ")
-assert_eq "1.0.0" "$out" "nco_load_version: reads version.txt"
+assert_eq "$expected_version" "$out" "nco_load_version: reads version.txt"
 
 # Missing version.txt → "unknown" fallback.
 FAKE_INSTALL=$(mktemp -d)
@@ -150,7 +154,7 @@ assert_eq "" "$out" "show_update_hint: silent when no remote known"
 # --- bin/noclickops.sh lister: shows local version ---
 
 out=$("$NCO_ROOT/bin/noclickops.sh" 2>&1)
-assert_contains "$out" "noclickops v1.0.0" "lister header shows local version"
+assert_contains "$out" "noclickops v$expected_version" "lister header shows local version"
 
 # --- bin/update.sh clears the cache (we test the rm path by pre-creating
 # the cache file and confirming update would delete it; but we can't

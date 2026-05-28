@@ -84,4 +84,18 @@ assert_contains "$out" "Meta"               "lister shows Meta section"
 
 rm -rf "$TEST_ROOT"
 
+# 10. Regression check (1.0.1): install.sh's curl|bash prompt must be
+# written explicitly to /dev/tty. The earlier version wrapped
+# 'read -r -p "$prompt" < /dev/tty' in 2>/dev/null which silenced the
+# prompt itself (bash writes -p to stderr), making the installer hang
+# at an invisible prompt. The fix is to printf the prompt to /dev/tty
+# before the read. A proper PTY-based behavioural test is hard; this
+# is a cheap grep guard against re-introducing the bug.
+if grep -q "printf '%s' \"\$prompt\" > /dev/tty" "$NCO_ROOT/install.sh"; then
+  pass "install.sh writes prompt to /dev/tty explicitly (1.0.1 regression guard)"
+else
+  fail "install.sh writes prompt to /dev/tty explicitly (1.0.1 regression guard)" \
+       "did not find: printf '%s' \"\$prompt\" > /dev/tty"
+fi
+
 summary

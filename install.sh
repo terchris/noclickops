@@ -34,14 +34,22 @@ die()     { err "$*"; exit 1; }
 
 # Prompt with default; reads /dev/tty when stdin is not a TTY (curl | bash).
 # Falls back to default if no controlling terminal exists (CI, non-interactive
-# pipes); stderr suppressed on the /dev/tty open so we don't leak alarming
-# "Device not configured" messages when it isn't available.
+# pipes).
+#
+# Subtlety: `read -p` writes its prompt to stderr. Earlier versions of this
+# function wrapped the read in `2>/dev/null` to suppress noisy
+# "Device not configured" errors in headless environments — but that wrap
+# also silenced the prompt itself, leaving the user staring at a blocked
+# shell with no visible "Append now? [Y/n]" line. Now we write the prompt
+# explicitly to /dev/tty (which fails-soft if /dev/tty is unwritable) and
+# wrap only the read in 2>/dev/null.
 ask_yes_no() {
   local prompt="$1" default="${2:-y}" answer=""
   if [ -t 0 ]; then
     read -r -p "$prompt" answer || true
   elif [ -e /dev/tty ]; then
-    { read -r -p "$prompt" answer < /dev/tty; } 2>/dev/null || true
+    printf '%s' "$prompt" > /dev/tty 2>/dev/null || true
+    { read -r answer < /dev/tty; } 2>/dev/null || true
   else
     answer="$default"
   fi
