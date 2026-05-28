@@ -19,5 +19,5 @@ Next steps:
 
   4. Run 'noclickops update' periodically to pull the latest noclickops.
 
-Source: https://github.com/terchris/noclickops
+Source: see  git -C ~/.noclickops remote get-url origin
 ═══════════════════════════════════════════════════════════════════════

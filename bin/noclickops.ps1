@@ -17,11 +17,15 @@ $ErrorActionPreference = 'Stop'
 . "$PSScriptRoot/../lib/logging.ps1"
 . "$PSScriptRoot/../lib/paths.ps1"
 . "$PSScriptRoot/../lib/metadata.ps1"
+. "$PSScriptRoot/../lib/version.ps1"
 
 if ($Help) {
   Show-Help -Path $PSCommandPath
   exit 0
 }
+
+Nco-LoadVersion
+Nco-CheckRemote
 
 # Section titles in canonical order.
 $sections = [ordered]@{
@@ -47,7 +51,7 @@ Get-ChildItem -Path $script:BIN_DIR -Filter *.ps1 | ForEach-Object {
 }
 
 Write-Host ""
-Write-Host "noclickops" -ForegroundColor White
+Write-Host "noclickops v$($script:NCO_VERSION)" -ForegroundColor White
 Write-Host "  portable script suite for developers"
 Write-Host "  Install: $script:NOCLICKOPS_DIR"
 
@@ -62,3 +66,5 @@ foreach ($cat in $sections.Keys) {
 Write-Host ""
 Write-Host "Run 'noclickops <cmd> -Help' for usage details, e.g.:"
 Write-Host "  noclickops update -Help"
+
+Nco-ShowUpdateHint

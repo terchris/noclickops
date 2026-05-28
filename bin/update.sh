@@ -36,4 +36,8 @@ if ! git -C "$NOCLICKOPS_DIR" pull --ff-only; then
   die "git pull failed in $NOCLICKOPS_DIR — resolve manually, then re-run."
 fi
 
+# Bust the version cache so the next lister call doesn't show a stale
+# "Update available" hint based on a pre-pull remote check.
+rm -f "$NOCLICKOPS_DIR/.version-cache" 2>/dev/null || true
+
 log_success "noclickops is up to date."

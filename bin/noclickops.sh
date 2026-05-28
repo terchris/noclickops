@@ -15,7 +15,11 @@ _dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "$_dir/../lib/logging.sh"
 . "$_dir/../lib/paths.sh"
 . "$_dir/../lib/metadata.sh"
+. "$_dir/../lib/version.sh"
 unset _dir
+
+nco_load_version
+nco_check_remote   # silently no-ops on cache miss + network failure
 
 case "${1:-}" in
   -h|--help) show_help "$0"; exit 0 ;;
@@ -50,7 +54,7 @@ emit_section() {
   printf "\n${_NCO_BOLD}%s${_NCO_NC}\n%s" "$title" "$buf"
 }
 
-printf "\n${_NCO_BOLD}noclickops${_NCO_NC} — portable script suite for developers\n"
+printf "\n${_NCO_BOLD}noclickops${_NCO_NC} v%s — portable script suite for developers\n" "$NCO_VERSION"
 printf "Install: %s\n" "$NOCLICKOPS_DIR"
 
 emit_section "Meta"               "$_buf_meta"
@@ -64,3 +68,5 @@ cat <<EOF
 Run 'noclickops <cmd> --help' for usage details, e.g.:
   noclickops update --help
 EOF
+
+nco_show_update_hint

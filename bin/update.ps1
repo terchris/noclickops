@@ -37,4 +37,8 @@ if ($LASTEXITCODE -ne 0) {
   Die -Message "git pull failed in $script:NOCLICKOPS_DIR — resolve manually, then re-run."
 }
 
+# Bust the version cache so the next lister call doesn't show a stale hint.
+$cache = Join-Path $script:NOCLICKOPS_DIR '.version-cache'
+if (Test-Path $cache) { Remove-Item $cache -ErrorAction SilentlyContinue }
+
 Log-Success -Message "noclickops is up to date."
