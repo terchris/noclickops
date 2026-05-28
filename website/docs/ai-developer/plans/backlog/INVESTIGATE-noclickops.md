@@ -81,46 +81,44 @@ Recorded here as prose so future readers don't have to chase IDs across repos. *
 
 ---
 
-## Open architecture decisions
+## Architecture decisions — RESOLVED 2026-05-28
 
 These are the v1 questions specific to `noclickops` as a separately-installed repo.
 
-### [Q1] Installation mechanism
+### [Q1] Installation mechanism — RESOLVED
 
 How a developer first installs `noclickops`.
 
-- **[Q1a]** `curl -fsSL <raw-url> | bash` one-liner that clones to `~/.noclickops/` and prints the shell-function snippet to paste. ← **recommended.** Two operations: clone + advise. Standard idiom (homebrew, rust, nvm).
-- **[Q1b]** Manual `git clone` + manual edit of `~/.zshrc`. No installer script. Lower magic; higher friction.
-- **[Q1c]** Homebrew / `winget` / package manager. Best UX; biggest infra commitment. Defer until adoption justifies it.
+- ✅ **[Q1a]** `curl -fsSL <raw-url> | bash` one-liner that clones to `~/.noclickops/` and prints the shell-function snippet to paste. *Resolved 2026-05-28.* Two operations: clone + advise. Standard idiom (homebrew, rust, nvm). PowerShell mirror in `install.ps1` for Windows-native installs.
+- ~~**[Q1b]** Manual `git clone` + manual edit of `~/.zshrc`~~ — rejected (higher friction).
+- ~~**[Q1c]** Homebrew / `winget` / package manager~~ — deferred until adoption justifies it.
 
-PowerShell mirror in `install.ps1` for Windows-native installs.
-
-### [Q2] Update mechanism
+### [Q2] Update mechanism — RESOLVED
 
 How the user gets a newer version.
 
-- **[Q2a]** `noclickops update` — a regular command in the suite that does `git -C ~/.noclickops pull --ff-only`. ← **recommended.** Self-hosted, no extra infra.
-- **[Q2b]** Auto-update on each invocation (cheap `git fetch` + compare). Higher freshness but slows every command and brittle offline.
-- **[Q2c]** Periodic check (once per day on `noclickops` invocation). Middle ground.
+- ✅ **[Q2a]** `noclickops update` — a regular command in the suite that does `git -C ~/.noclickops pull --ff-only`. *Resolved 2026-05-28.* Self-hosted, no extra infra.
+- ~~**[Q2b]** Auto-update on each invocation~~ — rejected (slow + brittle offline).
+- ~~**[Q2c]** Periodic check~~ — rejected (added complexity without clear win).
 
-### [Q3] Repository layout
+### [Q3] Repository layout — RESOLVED
 
 Where the executable scripts live in this repo.
 
-- **[Q3a]** `bin/` for scripts, `lib/` for shared helpers, `templates/` for stack templates, `install.{sh,ps1}` at the root. ← **recommended** — conforms to common project layouts; the shell function dispatches to `bin/<cmd>.{sh,ps1}` cleanly.
-- **[Q3b]** Flat — all scripts at repo root. Simpler. Doesn't scale past ~10 scripts; clutters the root.
+- ✅ **[Q3a]** `bin/` for scripts, `lib/` for shared helpers, `templates/` for stack templates, `install.{sh,ps1}` at the root. *Resolved 2026-05-28.* The shell-function dispatcher routes to `bin/<cmd>.{sh,ps1}` cleanly.
+- ~~**[Q3b]** Flat — all scripts at repo root~~ — rejected (clutters with ~10 scripts).
 
-### [Q4] Versioning approach
+### [Q4] Versioning approach — RESOLVED
 
-- **[Q4a]** Track `main` only; `noclickops update` always fast-forwards to latest `main`. ← **recommended for v1** — simplest; one release channel; matches how dev tooling typically works at this maturity.
-- **[Q4b]** Semver tags + a `--version` pin in the install (`~/.noclickops` checked out at a tag). Stable but heavier process.
+- ✅ **[Q4a]** Track `main` only; `noclickops update` always fast-forwards to latest `main`. *Resolved 2026-05-28.* Simplest; one release channel; matches how dev tooling typically works at this maturity.
+- ~~**[Q4b]** Semver tags + pin~~ — rejected for v1; revisit when adoption stabilizes.
 
-### [Q5] How target repos opt into `noclickops`
+### [Q5] How target repos opt into `noclickops` — RESOLVED
 
 What identifies a repo as "a noclickops-using repo" beyond "the dev has noclickops installed."
 
-- **[Q5a]** Nothing. Every script just runs against the current repo; if the repo lacks the structures the script expects (e.g. `services/<service>/.pipelines/variables/<env>.yaml`), the script reports it. **Per-script discovery**, no opt-in marker. ← **recommended for v1** — zero ceremony.
-- **[Q5b]** A `.noclickops` marker file at repo root with config (subscription overrides, custom paths, etc.). Per-repo config; useful when something needs customization. Add when the need emerges.
+- ✅ **[Q5a]** Nothing. Every script just runs against the current repo; if the repo lacks the structures the script expects (e.g. `services/<service>/.pipelines/variables/<env>.yaml`), the script reports it. **Per-script discovery**, no opt-in marker. *Resolved 2026-05-28.* Zero ceremony.
+- ~~**[Q5b]** A `.noclickops` marker file at repo root~~ — rejected for v1; add when a real need for per-repo config emerges.
 
 ---
 
