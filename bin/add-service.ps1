@@ -4,8 +4,8 @@
 # --- noclickops metadata ---
 $SCRIPT_NAME        = "add-service"
 $SCRIPT_DESCRIPTION = "Trigger the add-service pipeline to scaffold a new service."
-$SCRIPT_USAGE       = "noclickops add-service <service-name> [--persistent-storage] [--no-public-endpoint] [--watch]"
-$SCRIPT_EXAMPLE     = "noclickops add-service test-myapp --watch"
+$SCRIPT_USAGE       = "noclickops add-service <service-name> [--persistent-storage] [--no-public-endpoint]"
+$SCRIPT_EXAMPLE     = "noclickops add-service test-myapp"
 $SCRIPT_CATEGORY    = "service-lifecycle"
 # --- end metadata ---
 
@@ -33,15 +33,13 @@ if (-not $Service) { Die -Message "Usage: $SCRIPT_USAGE" }
 
 $persistent = 'false'
 $public     = 'true'
-$watch      = $false
 foreach ($a in $Rest) {
   switch ($a) {
     '--persistent-storage' { $persistent = 'true' }
     '--no-public-endpoint' { $public = 'false' }
-    '--watch'              { $watch = $true }
     default {
       if ($a.StartsWith('-')) {
-        Die -Message "Unknown flag: $a (expected --persistent-storage, --no-public-endpoint, or --watch)"
+        Die -Message "Unknown flag: $a (expected --persistent-storage or --no-public-endpoint)"
       } else {
         Die -Message "Unexpected positional argument: $a (only the service name is positional)"
       }
@@ -80,34 +78,17 @@ $runUrl = "$($script:AZDO_ORG_URL)/$($script:AZDO_PROJECT)/_build/results?buildI
 Log-Success -Message "Started run $runId"
 Write-Host "  $runUrl"
 
-if ($watch) {
-  Log-Info -Message "Watching (Ctrl-C to stop watching; the run keeps going)..."
-  for ($i = 0; $i -lt 90; $i++) {
-    $st = & az pipelines runs show --id $runId --query status -o tsv
-    if ($st -eq 'completed') {
-      $res = & az pipelines runs show --id $runId --query result -o tsv
-      if ($res -eq 'succeeded') {
-        Log-Success -Message "add-service pipeline succeeded."
-        Write-Host ""
-        Write-Host "Next steps:"
-        Write-Host "  1. The pipeline opened a PR titled 'Add service $Service'."
-        Write-Host "  2. Review the diff, then complete with:  noclickops merge-pr <id>"
-        Write-Host "  3. After merge, customise the service: 'noclickops clean-sample $Service'"
-        Write-Host "     and/or 'noclickops sync-lovable <lovable-repo> $Service'."
-        Write-Host "  4. Deploy with:  noclickops deploy $Service test --watch"
-        exit 0
-      } else {
-        Die -Message "add-service finished with result '$res'. See: $runUrl"
-      }
-    }
-    Start-Sleep -Seconds 20
-  }
-  Log-Warn -Message "Timed out after 30min watching run $runId. The run keeps going; check: $runUrl"
-} else {
-  Write-Host ""
-  Write-Host "Next steps:"
-  Write-Host "  1. Wait for the pipeline to finish (or re-run with --watch)."
-  Write-Host "  2. It opens PR 'Add service $Service' on completion — merge with:"
-  Write-Host "       noclickops merge-pr <id>"
-  Write-Host "  3. Customise the service and deploy."
-}
+# Fire-and-forget; add-service takes ~1h. Watching is hostile — use
+# 'noclickops status $runId' later instead.
+Write-Host ""
+Write-Host "This pipeline takes ~1 hour. The shell returns now."
+Write-Host ""
+Write-Host "Check progress any time:"
+Write-Host "  noclickops status $runId"
+Write-Host ""
+Write-Host "When the run completes, the pipeline will have opened PR 'Add service $Service'."
+Write-Host "Then:"
+Write-Host "  noclickops merge-pr <pr-id>                          # squash + sync"
+Write-Host "  noclickops clean-sample $Service                      # (if removing the sample)"
+Write-Host "  noclickops sync-lovable <lovable-repo> $Service       # (if syncing a Lovable app)"
+Write-Host "  noclickops deploy $Service test --watch               # deploy to test"

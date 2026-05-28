@@ -14,8 +14,8 @@
 # --- noclickops metadata ---
 SCRIPT_NAME="add-service"
 SCRIPT_DESCRIPTION="Trigger the add-service pipeline to scaffold a new service."
-SCRIPT_USAGE="noclickops add-service <service-name> [--persistent-storage] [--no-public-endpoint] [--watch]"
-SCRIPT_EXAMPLE="noclickops add-service test-myapp --watch"
+SCRIPT_USAGE="noclickops add-service <service-name> [--persistent-storage] [--no-public-endpoint]"
+SCRIPT_EXAMPLE="noclickops add-service test-myapp"
 SCRIPT_CATEGORY="service-lifecycle"
 # --- end metadata ---
 
@@ -39,14 +39,12 @@ shift
 # they want different.
 persistent_storage="false"
 public_endpoint="true"
-watch=0
 
 for a in "$@"; do
   case "$a" in
     --persistent-storage) persistent_storage="true" ;;
     --no-public-endpoint) public_endpoint="false" ;;
-    --watch)              watch=1 ;;
-    -*)  die "Unknown flag: $a (expected --persistent-storage, --no-public-endpoint, or --watch)" ;;
+    -*)  die "Unknown flag: $a (expected --persistent-storage or --no-public-endpoint)" ;;
     *)   die "Unexpected positional argument: $a (only the service name is positional)" ;;
   esac
 done
@@ -86,34 +84,18 @@ run_url="$AZDO_ORG_URL/$AZDO_PROJECT/_build/results?buildId=$run_id"
 log_success "Started run $run_id"
 echo "  $run_url"
 
-if [ "$watch" -eq 1 ]; then
-  log_info "Watching (Ctrl-C to stop watching; the run keeps going)..."
-  for _ in $(seq 1 90); do
-    st="$(az pipelines runs show --id "$run_id" --query status -o tsv)"
-    if [ "$st" = "completed" ]; then
-      res="$(az pipelines runs show --id "$run_id" --query result -o tsv)"
-      if [ "$res" = "succeeded" ]; then
-        log_success "add-service pipeline succeeded."
-        echo ""
-        echo "Next steps:"
-        echo "  1. The pipeline opened a PR titled 'Add service $service'."
-        echo "  2. Review the diff, then complete with:  noclickops merge-pr <id>"
-        echo "  3. After merge, customise the service: 'noclickops clean-sample $service'"
-        echo "     and/or 'noclickops sync-lovable <lovable-repo> $service'."
-        echo "  4. Deploy with:  noclickops deploy $service test --watch"
-        exit 0
-      else
-        die "add-service finished with result '$res'. See: $run_url"
-      fi
-    fi
-    sleep 20
-  done
-  log_warn "Timed out after 30min watching run $run_id. The run keeps going; check: $run_url"
-else
-  echo ""
-  echo "Next steps:"
-  echo "  1. Wait for the pipeline to finish (or re-run with --watch)."
-  echo "  2. It opens PR 'Add service $service' on completion — merge with:"
-  echo "       noclickops merge-pr <id>"
-  echo "  3. Customise the service and deploy."
-fi
+# Fire-and-forget: add-service typically takes ~1h (provisions infra, runs
+# Copier, opens a PR, creates the new CD pipeline). Watching that from a
+# terminal is hostile; the user comes back later with 'noclickops status'.
+echo ""
+echo "This pipeline takes ~1 hour. The shell returns now."
+echo ""
+echo "Check progress any time:"
+echo "  noclickops status $run_id"
+echo ""
+echo "When the run completes, the pipeline will have opened PR 'Add service $service'."
+echo "Then:"
+echo "  noclickops merge-pr <pr-id>                          # squash + sync"
+echo "  noclickops clean-sample $service                      # (if removing the sample)"
+echo "  noclickops sync-lovable <lovable-repo> $service       # (if syncing a Lovable app)"
+echo "  noclickops deploy $service test --watch               # deploy to test"
