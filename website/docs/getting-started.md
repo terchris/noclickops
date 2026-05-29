@@ -28,7 +28,8 @@ What works on each, as of v1.5.x:
 | `status` | ✓ | ✓ |
 | `create-pr`, `merge-pr` | ✓ | ✓ |
 | `add-service` | ✓ | Trigger works; auto-merge misses the PR (downstream is async). Use `--no-merge`, then `merge-pr` when the PR appears (~1–2 min). |
-| `info`, `logs`, `shell` | ✓ | Fails fast with "Repo-level variables missing". v2 fixes this. |
+| `info` | ✓ | **v2** — reads `services/<svc>/config.<env>.yaml` + IaC variables via ADO REST, discovers container app via `az containerapp list`. Public services show a `Public URL` line. |
+| `logs`, `shell` | ✓ | Still v1 — fails fast with "Repo-level variables missing". v2 fix in PLAN-D. |
 | `deploy` | ✓ | Fails with "no build definitions matching name `<repo>-<svc>-CD`" (new layout uses `-deploy`). v2 fixes this. |
 | `clean-sample`, `sync-lovable` | ✓ (Next.js sample / Lovable mirror) | Different sample shape; v2 refactor needed. |
 
@@ -139,9 +140,42 @@ SERVICE=your-service-name   # e.g. postgrest, my-app, ...
 noclickops info $SERVICE test
 ```
 
-Expect a block of static config (APP_NAME, ENVIRONMENT, subscription id, resource group, port, replicas) plus — if your subscription Reader access is set up — the live container-app state (revision, FQDN, image tag).
+**On the new layout (v2):** three static sections (IaC repo, Service config) followed by the live container-app block. Public services with `ENABLE_PUBLIC_ENDPOINT=true` get a `Public URL: https://<svc>.<dns-zone>` line.
 
-If you see `Reader access missing on subscription <id>`, the static section still prints; the live section won't. That's the documented graceful degradation.
+```text
+Service: frontend (test)
+────────────────────────────────────────
+  Folder:             /path/to/ABC100001-myservice/services/frontend
+
+IaC repo (engineer-owned):
+  App name (IaC):     abc100001
+  Application name:   myservice
+  Team:               ABC
+  Subscription:       3aec5ff4-...
+  Common RG:          rg-test-myteam-frontend-common
+  Container registry: acrshareduw
+  DNS zone:           example.cloud
+
+Service config:
+  Port:               3000
+  Health check:       /health
+  CPU:                0.5
+  Memory:             1Gi
+  ...
+  Public endpoint:    true
+  Public URL:         https://frontend.example.cloud
+
+Live state (Azure):
+  Container app:      ca-abc100001-frontend
+  Resource group:     rg-test-myteam-frontend-common
+  Internal FQDN:      ca-abc100001-frontend....westeurope.azurecontainerapps.io
+  Status:             Running
+  Latest revision:    ca-abc100001-frontend--rev42
+  Image:              acrshareduw.azurecr.io/abc100001/frontend:latest
+  Replicas (live):    min=1, max=3
+```
+
+If you don't have Reader on the deployed subscription (or the app isn't deployed yet), the live section degrades to `(live state unavailable — set SVC_APP_NAME_OVERRIDE and SVC_RG_OVERRIDE to override, or check 'az login' ...)`. Static sections always print first.
 
 **Recent pipeline runs in this repo**
 
