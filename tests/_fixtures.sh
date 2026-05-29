@@ -298,7 +298,7 @@ set -uo pipefail
 fixtures="${NCO_TEST_AZ_FIXTURES:?NCO_TEST_AZ_FIXTURES not set}"
 args=("$@")
 subcmd=""
-proj=""; rg=""; sub=""
+proj=""; rg=""; sub=""; q=""
 i=0
 while [ $i -lt ${#args[@]} ]; do
   a="${args[$i]}"
@@ -309,6 +309,17 @@ while [ $i -lt ${#args[@]} ]; do
     --resource-group=*)   rg="${a#*=}" ;;
     --subscription)       i=$((i+1)); sub="${args[$i]:-}" ;;
     --subscription=*)     sub="${a#*=}" ;;
+    --query)
+      # Only use --query for keying if it's a simple identifier (e.g.
+      # `status`, `result`, `id`). Complex JMESPath (brackets, quotes,
+      # spaces) gets ignored — those fixtures are keyed on subcmd alone.
+      i=$((i+1))
+      qval="${args[$i]:-}"
+      case "$qval" in
+        ''|*\ *|*\[*|*\?*|*\'*|*\"*) ;;  # complex — skip
+        *) q="$qval" ;;
+      esac
+      ;;
     --parameters)
       # --parameters consumes N space-separated key=value pairs until the
       # next flag (az convention). Advance past all of them so they don't
@@ -325,18 +336,28 @@ while [ $i -lt ${#args[@]} ]; do
   esac
   i=$((i+1))
 done
-key="${subcmd}"
-[ -n "$proj" ] && key="${key}_proj_${proj}"
-[ -n "$rg" ]   && key="${key}_rg_${rg}"
-[ -n "$sub" ]  && key="${key}_sub_${sub}"
-key="${NCO_TEST_AZ_KEY:-$key}"
-for ext in tsv json txt; do
-  if [ -f "$fixtures/az_${key}.${ext}" ]; then
-    cat "$fixtures/az_${key}.${ext}"
-    exit 0
-  fi
+base_key="${subcmd}"
+[ -n "$proj" ] && base_key="${base_key}_proj_${proj}"
+[ -n "$rg" ]   && base_key="${base_key}_rg_${rg}"
+[ -n "$sub" ]  && base_key="${base_key}_sub_${sub}"
+# Two candidates: with query suffix (specific) and without (generic).
+# Try specific first; fall back to generic — keeps older fixtures working.
+if [ -n "${NCO_TEST_AZ_KEY:-}" ]; then
+  candidates=( "$NCO_TEST_AZ_KEY" )
+elif [ -n "$q" ]; then
+  candidates=( "${base_key}_query_${q}" "${base_key}" )
+else
+  candidates=( "$base_key" )
+fi
+for key in "${candidates[@]}"; do
+  for ext in tsv json txt; do
+    if [ -f "$fixtures/az_${key}.${ext}" ]; then
+      cat "$fixtures/az_${key}.${ext}"
+      exit 0
+    fi
+  done
 done
-printf 'stub: no fixture for az %s (key=%s)\n' "$*" "$key" >&2
+printf 'stub: no fixture for az %s (tried: %s)\n' "$*" "${candidates[*]}" >&2
 exit 1
 STUB
   chmod +x "$stub"
