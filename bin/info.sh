@@ -155,12 +155,15 @@ if ! _nco_az account show >/dev/null 2>&1; then
   exit 0
 fi
 
-# discover_containerapp dies on full failure; we want degradation here.
-discover_output=$(discover_containerapp "$service" 2>/dev/null) || discover_output=""
+# discover_containerapp dies on full failure (after calling
+# report_discovery_failure which prints the actionable diagnostic to
+# stderr). Capture stdout, let stderr through to the user, treat
+# non-zero exit as "degrade gracefully".
+discover_output=$(discover_containerapp "$service") || discover_output=""
 
 if [ -z "$discover_output" ]; then
-  printf "  (live state unavailable — set SVC_APP_NAME_OVERRIDE and SVC_RG_OVERRIDE to override,\n"
-  printf "   or check 'az login' and that you have Reader on subscription %s)\n" "${IAC_SUBSCRIPTION_ID:-<unknown>}"
+  # report_discovery_failure has already printed the diagnostic to stderr.
+  # Nothing useful to add here; just exit 0 so static section still rendered.
   exit 0
 fi
 
