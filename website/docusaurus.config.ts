@@ -10,7 +10,7 @@ const GITHUB_REPO = process.env.GITHUB_REPO || 'noclickops';
 const config: Config = {
   title: 'noclickops',
   tagline: 'A portable script suite — type a command instead of clicking a UI',
-  favicon: 'img/favicon.ico',
+  favicon: 'img/favicon.svg',
 
   future: {
     v4: true,
