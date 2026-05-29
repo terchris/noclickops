@@ -4,6 +4,10 @@ on:
   push:
     branches:
       - main
+      # Temporary: lets PLAN-104/105 smoke-test the deploy from the feature
+      # branch before merge. Remove this line when feat/v1.4.0-docusaurus
+      # merges into main (PLAN-105 cleanup task).
+      - feat/v1.4.0-docusaurus
   workflow_dispatch:
 
 permissions:
