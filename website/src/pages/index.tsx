@@ -11,25 +11,25 @@ import styles from './index.module.css';
 
 function HomepageHeader() {
   const {siteConfig} = useDocusaurusContext();
-  const githubUrl = `https://github.com/${siteConfig.organizationName}/${siteConfig.projectName}`;
-  const faviconUrl = useBaseUrl('/img/favicon.svg');
+  const logoUrl = useBaseUrl('/img/favicon.svg');
 
   return (
     <header className={clsx('hero', styles.heroBanner)}>
       <div className={clsx('container', styles.heroContainer)}>
-        <img src={faviconUrl} alt="noclickops" className={styles.heroLogo} />
-        <h1 className={clsx('hero__title', styles.heroTitle)}>{siteConfig.title}</h1>
-        <p className={clsx('hero__subtitle', styles.heroSubtitle)}>{siteConfig.tagline}</p>
-        <div className={styles.heroButtons}>
-          <Link className="button button--lg button--primary" to="/docs/">
-            Get Started
-          </Link>
-          <Link className="button button--lg button--outline" to="/docs/commands">
-            Commands
-          </Link>
-          <Link className="button button--lg button--outline" href={githubUrl}>
-            GitHub
-          </Link>
+        <div className={styles.heroIllustration}>
+          <img src={logoUrl} alt="noclickops logo" className={styles.heroMark} />
+        </div>
+        <div className={styles.heroContent}>
+          <h1 className={clsx('hero__title', styles.heroTitle)}>{siteConfig.title}</h1>
+          <p className={clsx('hero__subtitle', styles.heroSubtitle)}>{siteConfig.tagline}</p>
+          <div className={styles.heroButtons}>
+            <Link className="button button--lg button--primary" to="/docs/">
+              Get Started
+            </Link>
+            <Link className="button button--lg button--outline" to="/docs/commands">
+              Commands
+            </Link>
+          </div>
         </div>
       </div>
     </header>

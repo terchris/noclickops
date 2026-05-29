@@ -18,6 +18,18 @@ SCRIPT_DESCRIPTION="List all noclickops commands, or dispatch to a subcommand."
 SCRIPT_USAGE="noclickops [<subcommand> [args...]]"
 SCRIPT_EXAMPLE="noclickops merge-pr 4810"
 SCRIPT_CATEGORY="meta"
+SCRIPT_TAGS="lister dispatcher discovery inventory"
+SCRIPT_DETAILS="Without arguments, prints every available noclickops command grouped by category, with the current install version and a hint when a newer release is on GitHub. With a subcommand and arguments, execs the matching \`bin/<cmd>.sh\` so signals (Ctrl-C) reach the subcommand directly."
+SCRIPT_AUTH="None (local lister); subcommands have their own auth requirements."
+SCRIPT_DEPENDS_ON="bash"
+SCRIPT_SEE_ALSO="update"
+SCRIPT_FLAGS=(
+  "-h, --help|Show this help and exit."
+)
+SCRIPT_EXIT_CODES=(
+  "0|Success — listed or dispatched."
+  "1|Unknown subcommand (the named \`bin/<cmd>.sh\` doesn't exist)."
+)
 # --- end metadata ---
 
 set -euo pipefail

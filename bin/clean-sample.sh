@@ -12,6 +12,18 @@ SCRIPT_DESCRIPTION="Remove the Next.js sample app from a service folder."
 SCRIPT_USAGE="noclickops clean-sample <service>"
 SCRIPT_EXAMPLE="noclickops clean-sample test-myapp"
 SCRIPT_CATEGORY="service-lifecycle"
+SCRIPT_TAGS="cleanup placeholder nextjs sample copier scaffold"
+SCRIPT_DETAILS="Removes the Next.js Copier sample app from a freshly-scaffolded service folder, keeping the platform scaffolding intact (Dockerfile, service.yaml, .pipelines/, bicep/). Stages the deletions in git so they ship with the next PR. v1 targets the Next.js sample only."
+SCRIPT_AUTH="None."
+SCRIPT_DEPENDS_ON="bash git"
+SCRIPT_SEE_ALSO="add-service sync-lovable"
+SCRIPT_FLAGS=(
+  "-h, --help|Show this help and exit."
+)
+SCRIPT_EXIT_CODES=(
+  "0|Sample stripped — deletions staged in git."
+  "1|Service folder not found, or service has been modified beyond the sample."
+)
 # --- end metadata ---
 
 set -euo pipefail

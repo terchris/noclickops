@@ -11,6 +11,23 @@ SCRIPT_DESCRIPTION="Open an interactive shell in the live container app for a se
 SCRIPT_USAGE="noclickops shell <service> [test|prod] [--command CMD] [--container NAME] [--revision NAME]"
 SCRIPT_EXAMPLE="noclickops shell test-holderdeord test"
 SCRIPT_CATEGORY="inspect"
+SCRIPT_TAGS="exec shell container-app interactive sh"
+SCRIPT_DETAILS="Opens an interactive /bin/sh inside the running container of a deployed service via az containerapp exec. Use --command to run a single command non-interactively. --container picks a non-default container in a multi-container app; --revision picks a non-active revision."
+SCRIPT_AUTH="az login + Reader on the subscription in \`.pipelines/variables/<env>.yaml\`."
+SCRIPT_DEPENDS_ON="az"
+SCRIPT_SEE_ALSO="info logs deploy"
+SCRIPT_FLAGS=(
+  "test|Shell into the test environment (default)."
+  "prod|Shell into production."
+  "--command CMD|Run a single command non-interactively, then exit."
+  "--container NAME|Pick a specific container in a multi-container app."
+  "--revision NAME|Pick a specific revision (default: currently active)."
+  "-h, --help|Show this help and exit."
+)
+SCRIPT_EXIT_CODES=(
+  "0|Shell session exited cleanly (or single command ran successfully)."
+  "1|Service / container / revision not found, or access denied."
+)
 # --- end metadata ---
 
 set -euo pipefail

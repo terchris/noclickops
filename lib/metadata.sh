@@ -2,11 +2,28 @@
 # lib/metadata.sh — parse SCRIPT_* metadata from script files; print --help.
 #
 # Each bin/ script declares (near the top):
-#   SCRIPT_NAME="<short name>"
-#   SCRIPT_DESCRIPTION="<one line>"
-#   SCRIPT_USAGE="<one-line usage form>"
-#   SCRIPT_EXAMPLE="<one example>"
-#   SCRIPT_CATEGORY="<meta|git|deploy|service-lifecycle|inspect>"
+#   Core (used by both --help and the docs site):
+#     SCRIPT_NAME="<short name>"
+#     SCRIPT_DESCRIPTION="<one line>"
+#     SCRIPT_USAGE="<one-line usage form>"
+#     SCRIPT_EXAMPLE="<one example>"
+#     SCRIPT_CATEGORY="<meta|git|deploy|service-lifecycle|inspect>"
+#
+#   Extended (used by the docs site at noclickops.sovereignsky.no — render
+#   richer per-command pages; ignored by show_help to keep CLI output tight):
+#     SCRIPT_TAGS="<space-separated keywords>"
+#     SCRIPT_DETAILS="<a paragraph: what this actually does>"
+#     SCRIPT_AUTH="<auth prerequisites, one line>"
+#     SCRIPT_SEE_ALSO="<space-separated command names>"
+#     SCRIPT_DEPENDS_ON="<space-separated CLI names>"
+#     SCRIPT_FLAGS=(           # bash array: "flag|description" per row
+#       "--watch|Watch the pipeline run to completion"
+#       "-h,--help|Show this help and exit"
+#     )
+#     SCRIPT_EXIT_CODES=(      # bash array: "code|meaning" per row
+#       "0|Success"
+#       "1|Argument error / target not found / az error"
+#     )
 #
 # show_help reads them from the file (via grep) so -h/--help is uniform
 # without each script having to re-print its own help block.
@@ -32,6 +49,12 @@ valid_category() {
 # Extract a single SCRIPT_* field. Strips the outermost matching quote pair
 # (single or double) if present — values can embed the other quote style
 # (e.g. SCRIPT_USAGE='cmd "arg"') without breaking the parser.
+#
+# Also unescapes \` → ` so SCRIPT_DETAILS / SCRIPT_AUTH strings that contain
+# literal backticks (written as `\`` inside the bash double-quoted source —
+# the standard bash escape) render as real markdown inline-code on the
+# website. Without this, the website sees `\`` and MDX parses `<word>` next
+# to it as a JSX tag instead of code.
 _extract_field() {
   local file="$1" field="$2" raw
   raw="$(grep -E "^${field}=" "$file" | head -1 | sed -E "s/^${field}=//")"
@@ -39,11 +62,45 @@ _extract_field() {
     \"*\") raw="${raw#\"}"; raw="${raw%\"}" ;;
     \'*\') raw="${raw#\'}"; raw="${raw%\'}" ;;
   esac
+  raw="${raw//\\\`/\`}"
   printf '%s' "$raw"
 }
 
+# Extract a bash array field. Emits each element on its own line so callers
+# can iterate via `while read -r line`. Comments and blank lines stripped.
+# Surrounding quotes (single OR double) stripped from each element.
+_extract_array_field() {
+  local file="$1" field="$2"
+  awk -v arr="$field" '
+    $0 ~ "^" arr "=\\(" {
+      capturing = 1
+      sub("^" arr "=\\(", "")
+      if (/\)$/) { sub(/\)$/, ""); if (length($0)) print; capturing = 0; next }
+      if (length($0)) print
+      next
+    }
+    capturing {
+      if (/^[[:space:]]*\)/) { capturing = 0; next }
+      if (/\)[[:space:]]*$/) { sub(/\)[[:space:]]*$/, ""); if (length($0)) print; capturing = 0; next }
+      print
+    }
+  ' "$file" \
+    | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' \
+    | grep -v '^$' \
+    | grep -v '^#' \
+    | sed -E 's/^"(.*)"$/\1/; s/^'\''(.*)'\''$/\1/' \
+    | sed -e 's/\\`/`/g'
+}
+
 # Parse SCRIPT_* fields from a script file.
-# Sets: parsed_name, parsed_description, parsed_usage, parsed_example, parsed_category.
+# Sets globals:
+#   Core:     parsed_name, parsed_description, parsed_usage, parsed_example,
+#             parsed_category.
+#   Extended: parsed_tags, parsed_details, parsed_auth, parsed_see_also,
+#             parsed_depends_on (scalars; empty string if missing).
+#   Arrays:   parsed_flags, parsed_exit_codes (newline-separated strings —
+#             one row per line, "<key>|<value>" format; empty string if
+#             missing).
 parse_metadata() {
   local file="$1"
   [ -f "$file" ] || { log_error "metadata: file not found: $file"; return 1; }
@@ -53,6 +110,14 @@ parse_metadata() {
   parsed_usage="$(_extract_field "$file" SCRIPT_USAGE)"
   parsed_example="$(_extract_field "$file" SCRIPT_EXAMPLE)"
   parsed_category="$(_extract_field "$file" SCRIPT_CATEGORY)"
+
+  parsed_tags="$(_extract_field "$file" SCRIPT_TAGS)"
+  parsed_details="$(_extract_field "$file" SCRIPT_DETAILS)"
+  parsed_auth="$(_extract_field "$file" SCRIPT_AUTH)"
+  parsed_see_also="$(_extract_field "$file" SCRIPT_SEE_ALSO)"
+  parsed_depends_on="$(_extract_field "$file" SCRIPT_DEPENDS_ON)"
+  parsed_flags="$(_extract_array_field "$file" SCRIPT_FLAGS)"
+  parsed_exit_codes="$(_extract_array_field "$file" SCRIPT_EXIT_CODES)"
 }
 
 # Print --help for the given script based on its metadata.

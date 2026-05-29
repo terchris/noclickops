@@ -13,6 +13,23 @@ SCRIPT_DESCRIPTION="Show or stream the container-app logs for a service."
 SCRIPT_USAGE="noclickops logs <service> [test|prod] [--follow|-f] [--tail N] [--system]"
 SCRIPT_EXAMPLE="noclickops logs test-holderdeord test --follow"
 SCRIPT_CATEGORY="inspect"
+SCRIPT_TAGS="container-app logs tail streaming follow"
+SCRIPT_DETAILS="Streams or tails container logs for a deployed service via az containerapp logs show. --follow keeps the stream open until Ctrl-C; --tail N starts with the last N lines and exits; --system includes platform logs alongside application logs. Gating — any access failure exits non-zero (unlike info which degrades)."
+SCRIPT_AUTH="az login + Reader on the subscription in \`.pipelines/variables/<env>.yaml\`."
+SCRIPT_DEPENDS_ON="az"
+SCRIPT_SEE_ALSO="info shell deploy"
+SCRIPT_FLAGS=(
+  "test|Tail the test environment (default)."
+  "prod|Tail production."
+  "--follow, -f|Stream new logs as they arrive."
+  "--tail N|Start with the last N lines, then exit."
+  "--system|Include system / platform logs alongside app logs."
+  "-h, --help|Show this help and exit."
+)
+SCRIPT_EXIT_CODES=(
+  "0|Logs streamed or printed; --follow ended cleanly."
+  "1|Service / container app not found, access denied, or invalid arg."
+)
 # --- end metadata ---
 
 set -euo pipefail

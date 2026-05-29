@@ -78,45 +78,54 @@ script_help_output() {
     || true  # don't die if --help itself exits non-zero
 }
 
-# Anchor slug for a category. Matches Docusaurus's auto-anchor for H2 headings
-# (lowercased, spaces+slashes → hyphens, drop other punctuation).
+# Anchor slug for a category. Mimics Docusaurus's github-slugger so links
+# resolve to the H2 auto-anchor. Steps: lowercase, spaces → hyphens, drop
+# everything that isn't alphanumeric or hyphen. The slash in "Git / pull
+# requests" becomes nothing (dropped), so the surrounding spaces produce
+# adjacent hyphens — "git--pull-requests" (double dash, intentional, matches
+# Docusaurus's output). Same logic as CommandCategoryCard.anchorFor() in TS.
 category_anchor() {
   local label="$1"
   printf '%s' "$label" \
     | tr '[:upper:]' '[:lower:]' \
-    | sed 's/ \/ /-/g; s/ /-/g; s/[^a-z0-9-]//g'
+    | sed 's/ /-/g; s/[^a-z0-9-]//g'
 }
 
 # ──────────────────────────────────────────────────────────────────────────
 # Pass 1: parse every bin/*.sh, accumulate flat records.
 # Stored in parallel arrays indexed 0..N-1.
 
-declare -a CMD_NAMES CMD_DESCS CMD_USAGES CMD_EXAMPLES CMD_CATS CMD_FILES
+declare -a CMD_NAMES CMD_DESCS CMD_USAGES CMD_EXAMPLES CMD_CATS CMD_FILES \
+           CMD_TAGS CMD_DETAILS CMD_AUTH CMD_SEE_ALSO CMD_DEPENDS_ON \
+           CMD_FLAGS CMD_EXIT_CODES
 
 parse_all_commands() {
   log_info "Parsing bin/*.sh metadata..."
   local script
   for script in "$BIN_DIR"/*.sh; do
     [ -f "$script" ] || continue
-    # Subshell isolates parse_metadata's globals between iterations.
-    local row
-    row=$(
-      parse_metadata "$script" >/dev/null
-      # tab-separated: name\tdesc\tusage\texample\tcategory
-      printf '%s\t%s\t%s\t%s\t%s\n' \
-        "$parsed_name" \
-        "$parsed_description" \
-        "$parsed_usage" \
-        "$parsed_example" \
-        "$parsed_category"
-    )
-    IFS=$'\t' read -r name desc usage example cat <<< "$row"
-    CMD_NAMES+=("$name")
-    CMD_DESCS+=("$desc")
-    CMD_USAGES+=("$usage")
-    CMD_EXAMPLES+=("$example")
-    CMD_CATS+=("$cat")
+    # Reset parsed_* globals so leftovers from prior iteration don't bleed in.
+    # (No subshell isolation — array fields contain embedded newlines that the
+    # previous printf/IFS-read pattern couldn't carry across the subshell boundary.)
+    parsed_name=""; parsed_description=""; parsed_usage=""; parsed_example=""
+    parsed_category=""; parsed_tags=""; parsed_details=""; parsed_auth=""
+    parsed_see_also=""; parsed_depends_on=""; parsed_flags=""; parsed_exit_codes=""
+
+    parse_metadata "$script" >/dev/null || continue
+
+    CMD_NAMES+=("$parsed_name")
+    CMD_DESCS+=("$parsed_description")
+    CMD_USAGES+=("$parsed_usage")
+    CMD_EXAMPLES+=("$parsed_example")
+    CMD_CATS+=("$parsed_category")
     CMD_FILES+=("$script")
+    CMD_TAGS+=("$parsed_tags")
+    CMD_DETAILS+=("$parsed_details")
+    CMD_AUTH+=("$parsed_auth")
+    CMD_SEE_ALSO+=("$parsed_see_also")
+    CMD_DEPENDS_ON+=("$parsed_depends_on")
+    CMD_FLAGS+=("$parsed_flags")
+    CMD_EXIT_CODES+=("$parsed_exit_codes")
   done
   log_info "  Parsed ${#CMD_NAMES[@]} commands."
 }
@@ -131,17 +140,53 @@ emit_commands_json() {
   local out="["
   for i in "${!CMD_NAMES[@]}"; do
     [ $i -gt 0 ] && out+=","
+    # Build arrays for flags/exit-codes/see-also/depends-on so JSON consumers
+    # (React components) can iterate cleanly without re-splitting strings.
+    local flags_json exit_json see_also_json depends_json tags_json
+    flags_json="$(_lines_to_json_kv "${CMD_FLAGS[$i]}")"
+    exit_json="$(_lines_to_json_kv "${CMD_EXIT_CODES[$i]}")"
+    see_also_json="$(_space_to_json_array "${CMD_SEE_ALSO[$i]}")"
+    depends_json="$(_space_to_json_array "${CMD_DEPENDS_ON[$i]}")"
+    tags_json="$(_space_to_json_array "${CMD_TAGS[$i]}")"
+
     out+=$(jq -n \
-      --arg name "${CMD_NAMES[$i]}" \
+      --arg name        "${CMD_NAMES[$i]}" \
       --arg description "${CMD_DESCS[$i]}" \
-      --arg usage "${CMD_USAGES[$i]}" \
-      --arg example "${CMD_EXAMPLES[$i]}" \
-      --arg category "${CMD_CATS[$i]}" \
-      '{name: $name, description: $description, usage: $usage, example: $example, category: $category}')
+      --arg usage       "${CMD_USAGES[$i]}" \
+      --arg example     "${CMD_EXAMPLES[$i]}" \
+      --arg category    "${CMD_CATS[$i]}" \
+      --arg details     "${CMD_DETAILS[$i]}" \
+      --arg auth        "${CMD_AUTH[$i]}" \
+      --argjson tags      "$tags_json" \
+      --argjson seeAlso   "$see_also_json" \
+      --argjson dependsOn "$depends_json" \
+      --argjson flags     "$flags_json" \
+      --argjson exitCodes "$exit_json" \
+      '{name:$name, description:$description, category:$category, tags:$tags,
+        details:$details, usage:$usage, example:$example, auth:$auth,
+        dependsOn:$dependsOn, flags:$flags, exitCodes:$exitCodes,
+        seeAlso:$seeAlso}')
   done
   out+="]"
   printf '%s\n' "$out" | jq '.' > "$DATA_DIR/commands.json"
   log_info "  Wrote ${#CMD_NAMES[@]} command rows."
+}
+
+# Helper: convert space-separated string → JSON array of strings.
+_space_to_json_array() {
+  local s="$1"
+  if [ -z "$s" ]; then printf '[]'; return; fi
+  printf '%s' "$s" | tr -s ' ' '\n' | jq -R . | jq -s .
+}
+
+# Helper: convert newline-separated "key|value" lines → JSON array of {key, value}.
+_lines_to_json_kv() {
+  local s="$1"
+  if [ -z "$s" ]; then printf '[]'; return; fi
+  printf '%s\n' "$s" \
+    | grep -v '^$' \
+    | jq -R 'split("|") | {key: .[0], value: (.[1:] | join("|"))}' \
+    | jq -s .
 }
 
 # Emit website/src/data/categories.json
@@ -170,34 +215,47 @@ emit_categories_json() {
 }
 
 # ──────────────────────────────────────────────────────────────────────────
-# Emit website/docs/commands.mdx
+# Emit website/docs/commands/ — one landing page + one page per command.
+#
+# Layout:
+#   docs/commands/index.mdx     → /docs/commands (landing: CategoryGrid + lists)
+#   docs/commands/<name>.mdx    → /docs/commands/<name> (per-command reference)
+#   docs/commands/_category_.json (sidebar label for the auto-generated section)
 
-emit_commands_mdx() {
-  local out="$DOCS_DIR/commands.mdx"
+emit_commands_category_json() {
+  # No-op now that the sidebar for /docs/commands is built manually in
+  # sidebars.ts (see "Commands" section there). The Docusaurus auto-sidebar
+  # ignores docs/commands/ entirely because sidebars.ts excludes it.
+  return 0
+}
+
+emit_commands_landing() {
+  local out="$DOCS_DIR/commands/index.mdx"
   log_info "Writing $out..."
-  mkdir -p "$DOCS_DIR"
+  mkdir -p "$DOCS_DIR/commands"
 
   {
     cat <<'EOF'
 ---
 title: Commands
-sidebar_position: 2
+sidebar_label: Overview
+sidebar_position: 0
 ---
 
 import CommandCategoryGrid from '@site/src/components/CommandCategoryGrid';
 
 # Commands
 
-Every noclickops command, grouped by category. Click a category card to jump to its section, or scan the full reference below.
+Every noclickops command, grouped by category. Click a category card to jump to its section, or open a command for its full reference.
 
 <CommandCategoryGrid />
 
 EOF
 
-    # One H2 per category, in canonical order.
+    # One H2 per category, with bullet list of command links.
+    # Links are FLAT: ./<cmd-name>. Grouping is done by sidebars.ts at build time.
     local cid label desc
     while IFS='|' read -r cid label desc; do
-      # Skip empty categories (defensive).
       local has=0 i
       for i in "${!CMD_CATS[@]}"; do
         [ "${CMD_CATS[$i]}" = "$cid" ] && has=1 && break
@@ -209,26 +267,130 @@ EOF
 
       for i in "${!CMD_CATS[@]}"; do
         [ "${CMD_CATS[$i]}" = "$cid" ] || continue
-        local name="${CMD_NAMES[$i]}" \
-              cmd_desc="${CMD_DESCS[$i]}" \
-              cmd_usage="${CMD_USAGES[$i]}" \
-              cmd_example="${CMD_EXAMPLES[$i]}" \
-              file="${CMD_FILES[$i]}"
-
-        printf '### %s\n\n' "$name"
-        printf '%s\n\n' "$cmd_desc"
-        printf '**Usage:**\n\n```bash\n%s\n```\n\n' "$cmd_usage"
-        printf '**Example:**\n\n```bash\n%s\n```\n\n' "$cmd_example"
-
-        # Collapsible --help block.
-        local help
-        help="$(script_help_output "$file")"
-        printf '<details>\n<summary>Full --help</summary>\n\n```text\n%s\n```\n\n</details>\n\n' "$help"
+        local name="${CMD_NAMES[$i]}" cmd_desc="${CMD_DESCS[$i]}"
+        printf -- '- [`%s`](./%s) — %s\n' "$name" "$name" "$cmd_desc"
       done
+      printf '\n'
     done <<< "$_CATEGORY_DEFS"
   } > "$out"
 
   log_info "  Wrote $(wc -l < "$out") lines."
+}
+
+emit_command_pages() {
+  log_info "Writing per-command pages to $DOCS_DIR/commands/..."
+  mkdir -p "$DOCS_DIR/commands"
+
+  local i count=0
+  for i in "${!CMD_NAMES[@]}"; do
+    local name="${CMD_NAMES[$i]}" \
+          cmd_desc="${CMD_DESCS[$i]}" \
+          cmd_usage="${CMD_USAGES[$i]}" \
+          cmd_example="${CMD_EXAMPLES[$i]}" \
+          cat_id="${CMD_CATS[$i]}" \
+          tags="${CMD_TAGS[$i]}" \
+          details="${CMD_DETAILS[$i]}" \
+          auth="${CMD_AUTH[$i]}" \
+          see_also="${CMD_SEE_ALSO[$i]}" \
+          depends_on="${CMD_DEPENDS_ON[$i]}" \
+          flags="${CMD_FLAGS[$i]}" \
+          exit_codes="${CMD_EXIT_CODES[$i]}" \
+          file="${CMD_FILES[$i]}"
+    local cat_label
+    cat_label="$(category_label "$cat_id")"
+    local help
+    help="$(script_help_output "$file")"
+    local page="$DOCS_DIR/commands/$name.mdx"
+
+    {
+      # Frontmatter + H1 + one-line description.
+      cat <<EOF
+---
+title: $name
+sidebar_label: $name
+description: $cmd_desc
+---
+
+# \`$name\`
+
+$cmd_desc
+EOF
+
+      # Optional long-form details paragraph.
+      if [ -n "$details" ]; then
+        printf '\n%s\n' "$details"
+      fi
+
+      # Category + tags badge row.
+      printf '\n**Category:** [%s](./#%s)' "$cat_label" "$(category_anchor "$cat_label")"
+      if [ -n "$tags" ]; then
+        local tag tag_html=""
+        for tag in $tags; do
+          tag_html+=" \`$tag\`"
+        done
+        printf '  \n**Tags:**%s' "$tag_html"
+      fi
+      printf '\n\n'
+
+      # Usage.
+      printf '## Usage\n\n```bash\n%s\n```\n\n' "$cmd_usage"
+
+      # Flags table (optional).
+      if [ -n "$flags" ]; then
+        printf '## Flags\n\n| Flag | Description |\n|---|---|\n'
+        while IFS='|' read -r flag flag_desc; do
+          [ -n "$flag" ] || continue
+          printf '| `%s` | %s |\n' "$flag" "$flag_desc"
+        done <<< "$flags"
+        printf '\n'
+      fi
+
+      # Example.
+      printf '## Example\n\n```bash\n%s\n```\n\n' "$cmd_example"
+
+      # Auth (optional).
+      if [ -n "$auth" ]; then
+        printf '## Auth\n\n%s\n\n' "$auth"
+      fi
+
+      # Depends on (optional).
+      if [ -n "$depends_on" ]; then
+        printf '## Depends on\n\n'
+        local dep
+        for dep in $depends_on; do
+          printf -- '- `%s`\n' "$dep"
+        done
+        printf '\n'
+      fi
+
+      # Exit codes table (optional).
+      if [ -n "$exit_codes" ]; then
+        printf '## Exit codes\n\n| Code | Meaning |\n|---|---|\n'
+        while IFS='|' read -r code meaning; do
+          [ -n "$code" ] || continue
+          printf '| `%s` | %s |\n' "$code" "$meaning"
+        done <<< "$exit_codes"
+        printf '\n'
+      fi
+
+      # See also (optional).
+      if [ -n "$see_also" ]; then
+        printf '## See also\n\n'
+        local other
+        for other in $see_also; do
+          printf -- '- [`%s`](./%s)\n' "$other" "$other"
+        done
+        printf '\n'
+      fi
+
+      # Full --help collapsible.
+      printf '## Full `--help` output\n\n<details>\n<summary>Show full --help</summary>\n\n```text\n%s\n```\n\n</details>\n' "$help"
+
+    } > "$page"
+    count=$((count + 1))
+  done
+
+  log_info "  Wrote $count per-command pages."
 }
 
 # ──────────────────────────────────────────────────────────────────────────
@@ -269,12 +431,18 @@ smoke_checks() {
   log_info "Running smoke checks..."
   local errors=0
 
-  # 1. Count match.
+  # 1. Count match — bin/*.sh vs commands.json vs per-command pages.
   local bin_count="${#CMD_NAMES[@]}"
-  local json_count
+  local json_count page_count
   json_count=$(jq 'length' "$DATA_DIR/commands.json")
+  # Per-command pages live alongside index.mdx in the same folder (flat).
+  page_count=$(find "$DOCS_DIR/commands" -maxdepth 1 -name '*.mdx' ! -name 'index.mdx' | wc -l | tr -d ' ')
   if [ "$bin_count" != "$json_count" ]; then
     log_error "  count mismatch: bin/=$bin_count, commands.json=$json_count"
+    errors=$((errors + 1))
+  fi
+  if [ "$bin_count" != "$page_count" ]; then
+    log_error "  count mismatch: bin/=$bin_count, per-command pages=$page_count"
     errors=$((errors + 1))
   fi
 
@@ -310,10 +478,12 @@ main() {
   parse_all_commands
   emit_commands_json
   emit_categories_json
-  emit_commands_mdx
+  emit_commands_category_json
+  emit_commands_landing
+  emit_command_pages
   emit_index_md
   smoke_checks
-  log_info "Done. Generated 4 files."
+  log_info "Done."
 }
 
 main "$@"

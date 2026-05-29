@@ -11,6 +11,21 @@ SCRIPT_DESCRIPTION="Trigger a service's CD pipeline (test or prod)."
 SCRIPT_USAGE="noclickops deploy <service> [test|prod] [--watch]"
 SCRIPT_EXAMPLE="noclickops deploy test-holderdeord test --watch"
 SCRIPT_CATEGORY="deploy"
+SCRIPT_TAGS="cd pipeline azure-devops container-app deployment release"
+SCRIPT_DETAILS="Triggers the CD pipeline named \`<AZDO_REPO>-<service>-CD\` with \`targetEnvironment=<env>\`. Branch ref is always refs/heads/main (the env is a parameter, not a source ref). With --watch, polls until the run completes."
+SCRIPT_AUTH="az login to the target's ADO tenant."
+SCRIPT_DEPENDS_ON="az git"
+SCRIPT_SEE_ALSO="status info logs"
+SCRIPT_FLAGS=(
+  "test|Deploy to the test environment (default)."
+  "prod|Deploy to production."
+  "--watch|Poll the pipeline run until it completes."
+  "-h, --help|Show this help and exit."
+)
+SCRIPT_EXIT_CODES=(
+  "0|Pipeline queued (or completed successfully with --watch)."
+  "1|Service folder missing, invalid env, pipeline failed, or az error."
+)
 # --- end metadata ---
 
 set -euo pipefail

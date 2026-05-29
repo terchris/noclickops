@@ -8,6 +8,18 @@ SCRIPT_DESCRIPTION="Squash-complete a PR, sync local main, delete the feature br
 SCRIPT_USAGE="noclickops merge-pr <pr-id>"
 SCRIPT_EXAMPLE="noclickops merge-pr 4779"
 SCRIPT_CATEGORY="git"
+SCRIPT_TAGS="merge squash pull-request pr azure-devops cleanup"
+SCRIPT_DETAILS="Squash-completes an Azure DevOps PR by id (the only merge type the target repos allow). Polls until the PR shows completed, deletes the source branch, then syncs local main (git fetch + git merge --ff-only) and deletes the matching local feature branch if any."
+SCRIPT_AUTH="az login to the target's ADO tenant."
+SCRIPT_DEPENDS_ON="az git"
+SCRIPT_SEE_ALSO="create-pr add-service"
+SCRIPT_FLAGS=(
+  "-h, --help|Show this help and exit."
+)
+SCRIPT_EXIT_CODES=(
+  "0|Merged — local main aligned to origin/main."
+  "1|PR not found, blocked by branch policy, or az/git error."
+)
 # --- end metadata ---
 
 set -euo pipefail

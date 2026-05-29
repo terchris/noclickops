@@ -19,6 +19,20 @@ SCRIPT_DESCRIPTION="Show service config and live container-app state."
 SCRIPT_USAGE="noclickops info <service> [test|prod]"
 SCRIPT_EXAMPLE="noclickops info test-holderdeord test"
 SCRIPT_CATEGORY="inspect"
+SCRIPT_TAGS="config container-app subscription read inspect"
+SCRIPT_DETAILS="Prints the static config a service ships with (APP_NAME, ENVIRONMENT, SUBSCRIPTION_ID, resource group, port, health-check path, CPU/memory/replicas, public-endpoint) plus the live container-app state (revision, FQDN, image tag, replica counts) when subscription access is available. Degrades gracefully: static sections still print if Reader is missing, with a clear message naming the subscription to ask for."
+SCRIPT_AUTH="az login (target's ADO tenant) for static config; Reader on the subscription in \`.pipelines/variables/<env>.yaml\` for live state."
+SCRIPT_DEPENDS_ON="az git"
+SCRIPT_SEE_ALSO="logs shell deploy"
+SCRIPT_FLAGS=(
+  "test|Inspect the test environment (default)."
+  "prod|Inspect production."
+  "-h, --help|Show this help and exit."
+)
+SCRIPT_EXIT_CODES=(
+  "0|Info shown — fully or partially (with explanatory message on partial)."
+  "1|Service folder missing, invalid env, or az error not related to access."
+)
 # --- end metadata ---
 
 set -euo pipefail

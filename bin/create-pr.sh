@@ -7,6 +7,18 @@ SCRIPT_DESCRIPTION="Open an Azure DevOps PR from the current branch to main."
 SCRIPT_USAGE='noclickops create-pr "<title>" ["<description>"]'
 SCRIPT_EXAMPLE='noclickops create-pr "feat: add login flow"'
 SCRIPT_CATEGORY="git"
+SCRIPT_TAGS="pull-request pr azure-devops branch push review"
+SCRIPT_DETAILS="Opens an Azure DevOps PR from the current git branch to main. Auto-pushes the branch (sets upstream) if it has no tracking ref yet. Title is required; description defaults to the title. Refuses to run on main."
+SCRIPT_AUTH="az login to the target's ADO tenant; first run also installs the azure-devops extension automatically."
+SCRIPT_DEPENDS_ON="az git"
+SCRIPT_SEE_ALSO="merge-pr"
+SCRIPT_FLAGS=(
+  "-h, --help|Show this help and exit."
+)
+SCRIPT_EXIT_CODES=(
+  "0|PR opened — prints the PR id and URL."
+  "1|Not in a git repo, on main branch, missing title, or az/git error."
+)
 # --- end metadata ---
 
 set -euo pipefail
