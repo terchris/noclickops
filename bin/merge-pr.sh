@@ -43,6 +43,9 @@ cd "$TARGET_REPO"
 derive_azdo_context "$TARGET_REPO"
 require_az
 
+# Source the v2 lib so `nco_git` is available for ADO-authed git operations.
+. "$(dirname "${BASH_SOURCE[0]}")/../lib/service-v2.sh"
+
 # Shared squash-complete + wait logic (since v1.3.0 — same helper used by
 # bin/add-service.sh's auto-merge path).
 squash_complete_pr "$pr_id" || exit 1
@@ -51,12 +54,14 @@ squash_complete_pr "$pr_id" || exit 1
 feature="$(git rev-parse --abbrev-ref HEAD)"
 log_step "Syncing local main and cleaning up"
 git checkout main
-git fetch --prune
-if git merge --ff-only origin/main >/dev/null 2>&1; then
+if ! nco_git fetch --prune >/dev/null 2>&1; then
+  log_warn "git fetch failed — local main NOT synced. The PR is merged on ADO."
+  log_warn "Run 'noclickops update' to refresh credentials, then 'git pull' manually."
+elif nco_git merge --ff-only origin/main >/dev/null 2>&1; then
   if [ "$feature" != "main" ]; then
     git branch -D "$feature" >/dev/null 2>&1 && log_success "Deleted local branch $feature"
   fi
-  log_success "Local main is in sync with origin/main."
+  log_success "Local main synced with origin/main."
 else
   log_warn "Local main diverged from origin/main and can't fast-forward."
   echo "  Local main likely has unpushed commits."
