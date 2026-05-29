@@ -543,7 +543,8 @@ assert_eq "1" "$rc"                              "planC-phase2: trigger_pipeline
 assert_contains "$out" "failed to start pipeline" "planC-phase2: trigger_pipeline error message"
 
 # watch_run happy path: stub returns "completed\tsucceeded"
-printf 'completed\tsucceeded\n' > "$az_fixtures/az_pipelines_runs_show_proj_IaC.tsv"
+printf 'completed\n' > "$az_fixtures/az_pipelines_runs_show_proj_IaC_query_status.tsv"
+printf 'succeeded\n' > "$az_fixtures/az_pipelines_runs_show_proj_IaC_query_result.tsv"
 out=$(bash -c "
   cd '$src'
   export NCO_TEST_AZ_FIXTURES='$az_fixtures'
@@ -559,7 +560,8 @@ assert_eq "0" "$rc"                       "planC-phase2: watch_run succeeded →
 assert_contains "$out" "succeeded"        "planC-phase2: watch_run prints 'succeeded' summary"
 
 # watch_run failure path
-printf 'completed\tfailed\n' > "$az_fixtures/az_pipelines_runs_show_proj_IaC.tsv"
+printf 'completed\n' > "$az_fixtures/az_pipelines_runs_show_proj_IaC_query_status.tsv"
+printf 'failed\n' > "$az_fixtures/az_pipelines_runs_show_proj_IaC_query_result.tsv"
 out=$(bash -c "
   cd '$src'
   export NCO_TEST_AZ_FIXTURES='$az_fixtures'
@@ -575,7 +577,8 @@ assert_eq "1" "$rc"                    "planC-phase2: watch_run failed → exit 
 assert_contains "$out" "failed"        "planC-phase2: watch_run prints 'failed' summary"
 
 # watch_run timeout: stub returns "inProgress\t" forever
-printf 'inProgress\t\n' > "$az_fixtures/az_pipelines_runs_show_proj_IaC.tsv"
+printf 'inProgress\n' > "$az_fixtures/az_pipelines_runs_show_proj_IaC_query_status.tsv"
+rm -f "$az_fixtures/az_pipelines_runs_show_proj_IaC_query_result.tsv"
 out=$(bash -c "
   cd '$src'
   export NCO_TEST_AZ_FIXTURES='$az_fixtures'

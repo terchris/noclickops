@@ -71,7 +71,8 @@ cat > "$az_fixtures/az_pipelines_run_proj_FrontProj.tsv" <<'EOF'
 4521
 EOF
 # watch_run completes successfully
-printf 'completed\tsucceeded\n' > "$az_fixtures/az_pipelines_runs_show_proj_FrontProj.tsv"
+printf 'completed\n' > "$az_fixtures/az_pipelines_runs_show_proj_FrontProj_query_status.tsv"
+printf 'succeeded\n' > "$az_fixtures/az_pipelines_runs_show_proj_FrontProj_query_result.tsv"
 
 out=$(cd "$src" && \
   NCO_TEST_IAC_ROOT="$iac" NCO_ADO_REST_OVERRIDE="$ado_stub" \
@@ -102,8 +103,10 @@ EOF
 cat > "$az_fixtures/az_pipelines_run_proj_FrontProj.tsv" <<'EOF'
 4521
 EOF
-printf 'completed\tsucceeded\n' > "$az_fixtures/az_pipelines_runs_show_proj_FrontProj.tsv"
-printf 'completed\tsucceeded\n' > "$az_fixtures/az_pipelines_runs_show_proj_IaC.tsv"
+printf 'completed\n' > "$az_fixtures/az_pipelines_runs_show_proj_FrontProj_query_status.tsv"
+printf 'succeeded\n' > "$az_fixtures/az_pipelines_runs_show_proj_FrontProj_query_result.tsv"
+printf 'completed\n' > "$az_fixtures/az_pipelines_runs_show_proj_IaC_query_status.tsv"
+printf 'succeeded\n' > "$az_fixtures/az_pipelines_runs_show_proj_IaC_query_result.tsv"
 
 # Override pipelines_runs_list_proj_IaC for the --watch polling: when the
 # function queries [?reason=='resourceTrigger'] | [0].id, return the run id
@@ -152,8 +155,10 @@ cat > "$az_fixtures/az_pipelines_run_proj_IaC.tsv" <<'EOF'
 8932
 EOF
 # Watch fixtures (same key for both projects, different content per project)
-printf 'completed\tsucceeded\n' > "$az_fixtures/az_pipelines_runs_show_proj_FrontProj.tsv"
-printf 'completed\tsucceeded\n' > "$az_fixtures/az_pipelines_runs_show_proj_IaC.tsv"
+printf 'completed\n' > "$az_fixtures/az_pipelines_runs_show_proj_FrontProj_query_status.tsv"
+printf 'succeeded\n' > "$az_fixtures/az_pipelines_runs_show_proj_FrontProj_query_result.tsv"
+printf 'completed\n' > "$az_fixtures/az_pipelines_runs_show_proj_IaC_query_status.tsv"
+printf 'succeeded\n' > "$az_fixtures/az_pipelines_runs_show_proj_IaC_query_result.tsv"
 
 out=$(cd "$src" && \
   NCO_TEST_IAC_ROOT="$iac" NCO_ADO_REST_OVERRIDE="$ado_stub" \

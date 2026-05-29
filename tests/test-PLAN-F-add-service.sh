@@ -56,7 +56,8 @@ write_default_az_fixtures() {
   # trigger_pipeline → run id
   printf '7777\n' > "$f/az_pipelines_run_proj_FrontProj.tsv"
   # watch_run → succeeded
-  printf 'completed\tsucceeded\n' > "$f/az_pipelines_runs_show_proj_FrontProj.tsv"
+  printf 'completed\n' > "$f/az_pipelines_runs_show_proj_FrontProj_query_status.tsv"
+printf 'succeeded\n' > "$f/az_pipelines_runs_show_proj_FrontProj_query_result.tsv"
   # PR-A: list → 4831, set-vote → empty, update → completed, show → completed
   printf '4831\n' > "$f/az_repos_pr_list_proj_FrontProj.tsv"
   printf '' > "$f/az_repos_pr_set-vote_proj_FrontProj.tsv"
@@ -103,7 +104,8 @@ iac=$(echo "$paths" | awk '{print $2}')
 az_fixtures=$(echo "$paths" | awk '{print $3}')
 # Only need pipeline fixtures for --no-merge path
 printf '7777\n' > "$az_fixtures/az_pipelines_run_proj_FrontProj.tsv"
-printf 'completed\tsucceeded\n' > "$az_fixtures/az_pipelines_runs_show_proj_FrontProj.tsv"
+printf 'completed\n' > "$az_fixtures/az_pipelines_runs_show_proj_FrontProj_query_status.tsv"
+printf 'succeeded\n' > "$az_fixtures/az_pipelines_runs_show_proj_FrontProj_query_result.tsv"
 # If add-service attempts ANY repos pr call, stub will fail (no fixture)
 
 out=$(cd "$src" && \

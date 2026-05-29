@@ -281,15 +281,18 @@ watch_run() {
   [ "$max_polls" -lt 1 ] && max_polls=1
 
   local start_ts=$SECONDS
-  local i raw status result
+  local i status result
   for i in $(seq 1 "$max_polls"); do
-    # One az call per poll: emits "<status>\t<result>" on a single TSV line.
-    # `result` is empty until status=completed.
-    raw=$(_nco_az pipelines runs show \
+    # First az call: status only. `az --query "[a,b]" -o tsv` outputs each
+    # field on its own line (not tab-separated), so we use two queries when
+    # the run reaches a terminal state — cheap (one extra round-trip total).
+    status=$(_nco_az pipelines runs show \
       --organization "$AZDO_ORG_URL" --project "$project" \
-      --id "$run_id" --query "[status, result]" -o tsv 2>/dev/null | head -1)
-    IFS=$'\t' read -r status result <<< "$raw"
+      --id "$run_id" --query status -o tsv 2>/dev/null | head -1)
     if [ "$status" = "completed" ]; then
+      result=$(_nco_az pipelines runs show \
+        --organization "$AZDO_ORG_URL" --project "$project" \
+        --id "$run_id" --query result -o tsv 2>/dev/null | head -1)
       local elapsed=$((SECONDS - start_ts))
       [ -t 1 ] && printf '\n'
       printf '%s (%dm %ds)\n' "${result:-unknown}" "$((elapsed / 60))" "$((elapsed % 60))"
