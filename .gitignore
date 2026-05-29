@@ -1,6 +1,10 @@
 # Per-install state — never committed.
 .version-cache
 
+# Private working folder — real customer identifiers, mappings, scratch notes.
+# Never committed. See terchris/redaction-map.md (local-only) for what lives there.
+terchris/
+
 # Docusaurus
 node_modules/
 website/build/
