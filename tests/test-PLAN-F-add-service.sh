@@ -58,16 +58,14 @@ write_default_az_fixtures() {
   # watch_run → succeeded
   printf 'completed\n' > "$f/az_pipelines_runs_show_proj_FrontProj_query_status.tsv"
 printf 'succeeded\n' > "$f/az_pipelines_runs_show_proj_FrontProj_query_result.tsv"
-  # PR-A: list → 4831, set-vote → empty, update → completed, show → completed
+  # PR-A: list → 4831; PR-B in IaC: list → 4832 (list IS project-scoped).
   printf '4831\n' > "$f/az_repos_pr_list_proj_FrontProj.tsv"
-  printf '' > "$f/az_repos_pr_set-vote_proj_FrontProj.tsv"
-  printf 'completed\n' > "$f/az_repos_pr_update_proj_FrontProj.tsv"
-  printf 'completed\n' > "$f/az_repos_pr_show_proj_FrontProj.tsv"
-  # PR-B in IaC: list → 4832, same flow
   printf '4832\n' > "$f/az_repos_pr_list_proj_IaC.tsv"
-  printf '' > "$f/az_repos_pr_set-vote_proj_IaC.tsv"
-  printf 'completed\n' > "$f/az_repos_pr_update_proj_IaC.tsv"
-  printf 'completed\n' > "$f/az_repos_pr_show_proj_IaC.tsv"
+  # set-vote / update / show are ORG-scoped (no --project flag), so they
+  # share one fixture across both PR-A and PR-B merges. Both succeed.
+  printf '' > "$f/az_repos_pr_set-vote.tsv"
+  printf 'completed\n' > "$f/az_repos_pr_update.tsv"
+  printf 'completed\n' > "$f/az_repos_pr_show.tsv"
 }
 
 # --- Happy path: both PRs auto-merged ---
