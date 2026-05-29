@@ -22,6 +22,21 @@ SCRIPT_DESCRIPTION="Scaffold a new service (Copier pipeline + auto-merge the PR)
 SCRIPT_USAGE="noclickops add-service <service-name> [--persistent-storage] [--no-public-endpoint] [--no-merge]"
 SCRIPT_EXAMPLE="noclickops add-service test-myapp --persistent-storage"
 SCRIPT_CATEGORY="service-lifecycle"
+SCRIPT_TAGS="scaffold copier pipeline new-service auto-merge"
+SCRIPT_DETAILS="Triggers the Copier-based \`<AZDO_REPO>-add-service\` pipeline, watches it to completion (~1 min), finds the scaffold PR by source branch (\`add-service-<name>\`), and squash-merges it. --no-merge restores PLAN-007a's fire-and-forget behaviour for callers that want it."
+SCRIPT_AUTH="az login to the target's ADO tenant."
+SCRIPT_DEPENDS_ON="az git"
+SCRIPT_SEE_ALSO="status merge-pr clean-sample sync-lovable"
+SCRIPT_FLAGS=(
+  "--persistent-storage|Provision a persistent volume for the service."
+  "--no-public-endpoint|Internal-only; don't expose via ingress."
+  "--no-merge|Trigger the pipeline and return immediately — don't watch or merge."
+  "-h, --help|Show this help and exit."
+)
+SCRIPT_EXIT_CODES=(
+  "0|Service scaffolded and PR merged to main."
+  "1|Pipeline failed, timed out (10 min cap), or merge blocked by policy."
+)
 # --- end metadata ---
 
 set -euo pipefail

@@ -20,6 +20,18 @@ SCRIPT_DESCRIPTION="Sync a Lovable Vite/React/PWA repo into a service folder."
 SCRIPT_USAGE="noclickops sync-lovable <lovable-repo-path> <service>"
 SCRIPT_EXAMPLE="noclickops sync-lovable ~/learn/helpers/holderdeord test-holderdeord"
 SCRIPT_CATEGORY="service-lifecycle"
+SCRIPT_TAGS="lovable rsync vite react pwa nginx dockerfile mirror"
+SCRIPT_DETAILS="Mirrors a Lovable.ai project export directory into a noclickops service folder. Pulls the upstream first, then rsyncs with --delete (excluding node_modules, .git, dist, .lovable, and the noclickops-managed Dockerfile/nginx/health.json/service.yaml/.pipelines/bicep). Re-renders Dockerfile + nginx.conf from templates/lovable/ and writes a fresh health.json with the source URL, short SHA, and commit date. Bash-only (rsync semantics don't map safely to PowerShell)."
+SCRIPT_AUTH="None."
+SCRIPT_DEPENDS_ON="bash rsync git jq"
+SCRIPT_SEE_ALSO="add-service clean-sample"
+SCRIPT_FLAGS=(
+  "-h, --help|Show this help and exit."
+)
+SCRIPT_EXIT_CODES=(
+  "0|Synced — Dockerfile / nginx / health.json regenerated."
+  "1|Source path missing, not a Lovable project, lockfile/dirty-tree guard tripped, or template error."
+)
 # --- end metadata ---
 
 set -euo pipefail

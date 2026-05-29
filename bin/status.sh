@@ -16,6 +16,18 @@ SCRIPT_DESCRIPTION="List recent pipeline runs, or show details for one run id."
 SCRIPT_USAGE="noclickops status [<run-id>]"
 SCRIPT_EXAMPLE="noclickops status"
 SCRIPT_CATEGORY="inspect"
+SCRIPT_TAGS="pipeline-run azure-devops watch poll list"
+SCRIPT_DETAILS="Without arguments, lists the 20 most recent pipeline runs in the target repo (id, name, status, result, time). With a run id, shows that one run's status, the queue/start/finish times, and the URL. Designed for the fire-and-forget pattern in add-service (PLAN-007a) where the pipeline takes ~1 hour — the list mode lets you discover run ids without remembering them."
+SCRIPT_AUTH="az login to the target's ADO tenant."
+SCRIPT_DEPENDS_ON="az git"
+SCRIPT_SEE_ALSO="deploy add-service"
+SCRIPT_FLAGS=(
+  "-h, --help|Show this help and exit."
+)
+SCRIPT_EXIT_CODES=(
+  "0|Status or list shown."
+  "1|Run id not found, not in target repo, or az error."
+)
 # --- end metadata ---
 
 set -euo pipefail

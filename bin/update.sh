@@ -7,6 +7,18 @@ SCRIPT_DESCRIPTION="Pull the latest noclickops from origin (fast-forward only)."
 SCRIPT_USAGE="noclickops update"
 SCRIPT_EXAMPLE="noclickops update"
 SCRIPT_CATEGORY="meta"
+SCRIPT_TAGS="self-update git-pull upgrade version"
+SCRIPT_DETAILS="Runs git pull --ff-only inside the install directory (~/.noclickops by default). Refreshes the cached version check so the lister stops nagging once you're up to date."
+SCRIPT_AUTH="None."
+SCRIPT_DEPENDS_ON="bash git"
+SCRIPT_SEE_ALSO="noclickops"
+SCRIPT_FLAGS=(
+  "-h, --help|Show this help and exit."
+)
+SCRIPT_EXIT_CODES=(
+  "0|Already up to date, or pulled cleanly."
+  "1|Pull failed (e.g. unmerged local changes in the install dir)."
+)
 # --- end metadata ---
 
 set -euo pipefail
