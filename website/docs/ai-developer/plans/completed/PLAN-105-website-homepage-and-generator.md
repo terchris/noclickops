@@ -351,20 +351,16 @@ cd website && npm run build  # clean
 
 ---
 
-### Phase 7: Commit, push, open the PR
-
-The "PR per investigation" payoff. Branch state going in: 5 commits ahead of main (PLAN-103/104). This PLAN adds 1–3 more commits (one per logical chunk: generator, components+homepage, cleanup+version+investigate-move).
+### Phase 7: Commit, push, open the PR — DONE 2026-05-29
 
 #### Tasks
 
-- [ ] 7.1 Commit per logical chunk on `feat/v1.4.0-docusaurus`. Suggested split:
-   - `feat(PLAN-105): scripts/generate-docs.sh — Bash generator for commands.mdx / index.md / JSON data`
-   - `feat(PLAN-105): marketing homepage with HomepageFeatures / QuickInstall / CommandCategoryGrid`
-   - `chore(PLAN-105): wire generator into CI, gitignore generated outputs, clean up PLAN-104 temporary triggers`
-   - `feat(v1.4.0): ship Docusaurus site — close INVESTIGATE-docusaurus trilogy`
-- [ ] 7.2 `git push` (branch already tracked from PLAN-104).
-- [ ] 7.3 Watch the CI deploy run to green (it now runs on push from the feat branch via the temporary trigger that's about to be removed — until the PR merges, the deploy still happens on feat-branch pushes; after merge, only main pushes deploy).
-- [ ] 7.4 Open the PR:
+- [x] 7.1 Split into 4 commits per the suggested chunks (generator / homepage+components / CI+cleanup / v1.4.0 ship).
+- [x] 7.2 `git push` — 4 commits to `origin/feat/v1.4.0-docusaurus`.
+- [x] 7.3 No new CI deploy from this push (the temporary feat-branch trigger was removed in commit 3). Live site reflects PLAN-104's last deploy until the PR merges to main.
+- [x] 7.4 PR opened: <https://github.com/terchris/noclickops/pull/11>
+
+Original draft of Phase 7 sub-tasks (kept for the record):
 
    ```bash
    gh pr create --title "feat(v1.4.0): Docusaurus site (INVESTIGATE-docusaurus trilogy: PLAN-103/104/105)" \
