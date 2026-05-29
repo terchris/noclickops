@@ -519,20 +519,26 @@ merge_pr_in_project() {
   [ -n "$pr_id" ] && [ -n "$project" ] \
     || die "merge_pr_in_project: usage: merge_pr_in_project <pr-id> <project> [<repo>]"
 
+  # NOTE on az flags: `pr show`, `pr set-vote`, `pr update` are
+  # org-scoped (PR ids are unique within the org). They REJECT --project.
+  # Only `pr list` accepts --project (used in find_pr_in_project).
+  # The `project` arg here is informational only — kept in the signature
+  # for symmetry with find_pr_in_project, useful in error messages.
+
   # Step 1: self-approve. Ignore errors (creator-can't-self-vote tenants).
   _nco_az repos pr set-vote \
-    --organization "$AZDO_ORG_URL" --project "$project" \
+    --organization "$AZDO_ORG_URL" \
     --id "$pr_id" --vote approve \
     >/dev/null 2>&1 || true
 
   # Step 2: squash-complete.
   if ! _nco_az repos pr update \
-    --organization "$AZDO_ORG_URL" --project "$project" \
+    --organization "$AZDO_ORG_URL" \
     --id "$pr_id" --status completed \
     --squash true --delete-source-branch true \
     --query status -o tsv >/dev/null 2>&1
   then
-    printf 'merge_pr_in_project: failed to mark PR #%s completed (branch policy?)\n' "$pr_id" >&2
+    printf 'merge_pr_in_project: failed to mark PR #%s completed in project %s (branch policy?)\n' "$pr_id" "$project" >&2
     return 1
   fi
 
@@ -542,7 +548,7 @@ merge_pr_in_project() {
   local i st=""
   for i in $(seq 1 "$max_polls"); do
     st=$(_nco_az repos pr show \
-      --organization "$AZDO_ORG_URL" --project "$project" \
+      --organization "$AZDO_ORG_URL" \
       --id "$pr_id" --query status -o tsv 2>/dev/null | head -1)
     case "$st" in
       completed)

@@ -642,11 +642,12 @@ out=$(bash -c "
 " 2>&1)
 assert_eq "" "$out" "planF-phase1: find_pr_in_project 'None' → empty"
 
-# merge_pr_in_project happy path: set-vote ok, pr update ok, pr show=completed
-# All three subcommands key as 'repos_pr_<verb>_proj_IaC'.
-printf '' > "$az_fixtures/az_repos_pr_set-vote_proj_IaC.tsv"
-printf 'completed\n' > "$az_fixtures/az_repos_pr_update_proj_IaC.tsv"
-printf 'completed\n' > "$az_fixtures/az_repos_pr_show_proj_IaC.tsv"
+# merge_pr_in_project happy path: set-vote ok, pr update ok, pr show=completed.
+# pr show/set-vote/update are org-scoped (no --project flag accepted by az),
+# so they key as just 'repos_pr_<verb>' — no project suffix.
+printf '' > "$az_fixtures/az_repos_pr_set-vote.tsv"
+printf 'completed\n' > "$az_fixtures/az_repos_pr_update.tsv"
+printf 'completed\n' > "$az_fixtures/az_repos_pr_show.tsv"
 out=$(bash -c "
   cd '$src'
   export NCO_TEST_AZ_FIXTURES='$az_fixtures'
@@ -661,7 +662,7 @@ assert_eq "0" "$rc"                       "planF-phase1: merge_pr_in_project hap
 assert_contains "$out" "PR #4832 completed" "planF-phase1: merge_pr_in_project prints success line"
 
 # merge_pr_in_project abandoned → exit 1
-printf 'abandoned\n' > "$az_fixtures/az_repos_pr_show_proj_IaC.tsv"
+printf 'abandoned\n' > "$az_fixtures/az_repos_pr_show.tsv"
 out=$(bash -c "
   cd '$src'
   export NCO_TEST_AZ_FIXTURES='$az_fixtures'
@@ -676,7 +677,7 @@ assert_eq "1" "$rc"                          "planF-phase1: merge_pr_in_project 
 assert_contains "$out" "abandoned"           "planF-phase1: merge_pr_in_project prints abandoned message"
 
 # merge_pr_in_project pr update failure → exit 1
-rm -f "$az_fixtures/az_repos_pr_update_proj_IaC.tsv"
+rm -f "$az_fixtures/az_repos_pr_update.tsv"
 out=$(bash -c "
   cd '$src'
   export NCO_TEST_AZ_FIXTURES='$az_fixtures'
