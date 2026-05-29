@@ -1,0 +1,15 @@
+.quickInstall {
+  padding: 3rem 0 4rem;
+  background: var(--ifm-color-emphasis-100);
+}
+
+.codeBlockWrap {
+  max-width: 720px;
+  margin: 1.5rem auto 1rem;
+}
+
+.hint {
+  font-size: 0.85rem;
+  color: var(--ifm-color-emphasis-600);
+  margin-bottom: 0;
+}
