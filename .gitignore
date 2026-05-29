@@ -1,2 +1,7 @@
 # Per-install state — never committed.
 .version-cache
+
+# Docusaurus
+node_modules/
+website/build/
+website/.docusaurus/

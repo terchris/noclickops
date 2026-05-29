@@ -1,0 +1,30 @@
+/**
+ * noclickops brand color: terminal green.
+ * Light mode primary: #00b347 (readable on white, passes WCAG AA on body text).
+ * Dark mode primary:  #00ff66 (neon accent on dark, classic terminal feel).
+ *
+ * Shade values generated using Docusaurus's Infima convention.
+ */
+
+:root {
+  --ifm-color-primary: #00b347;
+  --ifm-color-primary-dark: #00a140;
+  --ifm-color-primary-darker: #00993c;
+  --ifm-color-primary-darkest: #007e31;
+  --ifm-color-primary-light: #00c54e;
+  --ifm-color-primary-lighter: #00cd52;
+  --ifm-color-primary-lightest: #19e069;
+  --ifm-code-font-size: 95%;
+  --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.1);
+}
+
+[data-theme='dark'] {
+  --ifm-color-primary: #00ff66;
+  --ifm-color-primary-dark: #00e65c;
+  --ifm-color-primary-darker: #00d957;
+  --ifm-color-primary-darkest: #00b347;
+  --ifm-color-primary-light: #1aff75;
+  --ifm-color-primary-lighter: #26ff7c;
+  --ifm-color-primary-lightest: #4dff90;
+  --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.3);
+}

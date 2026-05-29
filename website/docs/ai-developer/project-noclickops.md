@@ -76,6 +76,25 @@ The shell function from [Q60] in the investigation routes by `pwd`'s git root �
 
 ---
 
+## Working on the docs site
+
+The site under `website/` is a Docusaurus app. Local dev:
+
+```bash
+cd website
+npm install            # first time only
+npm start              # http://localhost:3000 with hot reload
+npm run build          # production build (catches broken links)
+```
+
+Requires **Node 20+**. The build runs with `onBrokenLinks: 'throw'`, so any broken intra-docs link fails CI. Mermaid + local search are enabled.
+
+A dev-mode warning from the search plugin (`⚠ Local search will not work in dev mode`) is normal — the search index is built at `npm run build` time. To test search locally, run `npm run build` then `npm run serve`.
+
+The marketing homepage at `/` and the generated `/docs/commands` page are delivered by PLAN-105; the GitHub Pages deploy is delivered by PLAN-104. v1 of the site (PLAN-103) ships a placeholder homepage and a stub `/docs/` index — both are intentional, both get replaced.
+
+---
+
 ## Platform: GitHub
 
 This repo is on **GitHub** (`https://github.com/terchris/noclickops`), not Azure DevOps. Ignore the Azure DevOps half of [`AZURE-DEVOPS.md`](AZURE-DEVOPS.md); use the **GitHub Operations (`gh`) section of [`GIT.md`](GIT.md)** for PR mechanics here.
@@ -121,4 +140,4 @@ Everything substantive about *what* `noclickops` does lives in `plans/backlog/IN
 
 ## Always-loaded rules
 
-The repo root contains a [`CLAUDE.md`](../../../CLAUDE.md) that Claude Code auto-loads at session start. It points here as the authoritative project doc and surfaces the most critical rules.
+The repo root contains a [`CLAUDE.md`](https://github.com/terchris/noclickops/blob/main/CLAUDE.md) that Claude Code auto-loads at session start. It points here as the authoritative project doc and surfaces the most critical rules.

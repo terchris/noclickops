@@ -133,6 +133,10 @@ The v1 surface was built across the PLANs documented in [`website/docs/ai-develo
 bash tests/run-all.sh
 ```
 
+### Working on the docs site
+
+`website/` is a Docusaurus app — `cd website && npm install && npm start`. Full instructions in [`project-noclickops.md`](website/docs/ai-developer/project-noclickops.md#working-on-the-docs-site).
+
 285 tests across 11 files. No `az` / network / auth required — every fixture is built in `mktemp -d`.
 
 ## License

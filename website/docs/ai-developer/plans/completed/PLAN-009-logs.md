@@ -105,7 +105,7 @@ Two-phase ship on `feature/ai-developer-bootstrap`.
 | 2–6 | `--help` shows category, usage, and each of `--follow` / `--tail` / `--system` | ✅ |
 | 7–8 | No args → usage | ✅ |
 | 9–10 | Outside repo → "Not inside a git repository" | ✅ |
-| 11–12 | Unknown service → "Service '<name>' not found" | ✅ |
+| 11–12 | Unknown service → `Service '<name>' not found` | ✅ |
 | 13–14 | Invalid env (typo like `staging`) → "Invalid environment" | ✅ |
 | 15–16 | Unknown flag → "Unknown argument" | ✅ |
 | 17–18 | `--tail` without value → "--tail requires a number" | ✅ |
@@ -115,7 +115,7 @@ Two-phase ship on `feature/ai-developer-bootstrap`.
 
 **Aggregate**: `tests/run-all.sh` is now **241 tests, 0 failed, 0 skipped** (was 218 after PLAN-008).
 
-**UX wart caught and fixed mid-test**: the first arg parser treated any non-flag second positional as belonging to the `while` loop, so `logs myapp staging` errored with `Unknown argument: staging (expected --follow / -f / --tail N / --system)`. Reworded the env-parser branch to **catch a bare second positional that isn't `test|prod`** and error with "Invalid environment '<x>' (expected: test | prod)". The test that caught it stays in the suite; the wart can't come back.
+**UX wart caught and fixed mid-test**: the first arg parser treated any non-flag second positional as belonging to the `while` loop, so `logs myapp staging` errored with `Unknown argument: staging (expected --follow / -f / --tail N / --system)`. Reworded the env-parser branch to **catch a bare second positional that isn't `test|prod`** and error with `Invalid environment '<x>' (expected: test | prod)`. The test that caught it stays in the suite; the wart can't come back.
 
 **Related cleanup left for later**: `deploy.sh` and `add-service.sh` have the same arg-parser shape and would produce the same "Unknown argument" wart on `deploy myservice staging` or similar. Not changed in this PLAN (no test coverage for that path on those scripts). If the wart bites in practice, the fix is one-line apiece, matching this PLAN's pattern.
 

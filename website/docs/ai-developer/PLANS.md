@@ -575,7 +575,7 @@ When drafting a plan that changes documented behaviour, include the docs update 
 
 ## Keeping `backlog/1PRIORITY.md` current
 
-[`plans/backlog/1PRIORITY.md`](plans/backlog/1PRIORITY.md) is the priority view across all open INVESTIGATE files — it tiers them by what to investigate next, what to defer pending prereqs, and what's still an idea (not a real investigation yet). It's a triage tool, not a roadmap.
+`plans/backlog/1PRIORITY.md` (not yet present in this repo; convention inherited from sister projects) is the priority view across all open INVESTIGATE files — it tiers them by what to investigate next, what to defer pending prereqs, and what's still an idea (not a real investigation yet). It's a triage tool, not a roadmap.
 
 Update it when any of the following happens:
 

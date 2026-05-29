@@ -70,7 +70,7 @@ The "Invalid environment" check for a bare non-flag second positional is already
 - Lister shows `shell` under "Inspect / observe" alongside `info`, `logs`, `status`.
 - No args → usage error.
 - Outside any git repo → "Not inside a git repository".
-- Unknown service → "Service '<name>' not found".
+- Unknown service → `Service '<name>' not found`.
 - Invalid env (e.g. `staging`) → "Invalid environment".
 - Unknown flag → "Unknown argument".
 - `--command` without a value → distinct error.
@@ -108,7 +108,7 @@ Two-phase ship on `feature/ai-developer-bootstrap`.
 | 2–6 | `--help` shows category, usage, and each of `--command` / `--container` / `--revision` | ✅ |
 | 7–8 | No args → usage | ✅ |
 | 9–10 | Outside repo → "Not inside a git repository" | ✅ |
-| 11–12 | Unknown service → "Service '<name>' not found" | ✅ |
+| 11–12 | Unknown service → `Service '<name>' not found` | ✅ |
 | 13–14 | Invalid env → "Invalid environment" (PLAN-009's arg-parser pattern reused) | ✅ |
 | 15–16 | Unknown flag → "Unknown argument" | ✅ |
 | 17–18 | `--command` without value → "--command requires a value" | ✅ |
