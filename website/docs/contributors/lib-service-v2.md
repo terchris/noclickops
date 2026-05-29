@@ -122,6 +122,15 @@ What "good" looks like:
 
 ---
 
+## v2 consumers (commands sourcing this module)
+
+| Command | What it uses |
+|---|---|
+| `bin/info.sh` | `read_service_config` + `read_iac_variables` + `discover_containerapp` (degrades on failure); `public_url_for` |
+| `bin/deploy.sh` | `read_service_config` + `read_iac_variables` + `discover_pipelines` + `is_first_time_deploy` + `trigger_pipeline` + `watch_run` + `derive_containerapp_name` + `public_url_for` |
+| `bin/logs.sh` | `read_iac_variables` + `discover_containerapp` (gates on failure) |
+| `bin/shell.sh` | `read_iac_variables` + `discover_containerapp` (gates on failure) |
+
 ## Related
 
 - [Target layout reference](./target-layout-reference.md) — the empirical layout description this module targets.

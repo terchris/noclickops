@@ -29,7 +29,7 @@ What works on each, as of v1.5.x:
 | `create-pr`, `merge-pr` | ✓ | ✓ |
 | `add-service` | ✓ | Trigger works; auto-merge misses the PR (downstream is async). Use `--no-merge`, then `merge-pr` when the PR appears (~1–2 min). |
 | `info` | ✓ | **v2** — reads `services/<svc>/config.<env>.yaml` + IaC variables via ADO REST, discovers container app via `az containerapp list`. Public services show a `Public URL` line. |
-| `logs`, `shell` | ✓ | Still v1 — fails fast with "Repo-level variables missing". v2 fix in PLAN-D. |
+| `logs`, `shell` | ✓ | **v2** — discovers container app via `az containerapp list` against the IaC-declared subscription/RG; gates on discovery failure (no degraded mode). Override with `SVC_APP_NAME_OVERRIDE` + `SVC_RG_OVERRIDE`. |
 | `deploy` | ✓ | **v2** — multi-pipeline orchestration. Detects first-time vs subsequent automatically. First-time chains 4 pipelines (build → deploy → infra-build → deploy-test, ~10 min). Subsequent triggers `<repo>-<svc>-deploy` and exits; `--watch` follows the auto-triggered IaC deploy-test too. |
 | `clean-sample`, `sync-lovable` | ✓ (Next.js sample / Lovable mirror) | Different sample shape; v2 refactor needed. |
 

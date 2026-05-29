@@ -1,22 +1,24 @@
 #!/usr/bin/env bash
-# bin/logs.sh — show or stream a service's container-app logs.
+# bin/logs.sh — show or stream a service's container-app logs (v2).
 #
-# Resolves service+env via lib/service.sh, finds the container app in the
-# computed resource group, and execs `az containerapp logs show`.
+# Reads IaC variables (subscription + RG context) from the cross-project IaC
+# repo via lib/service-v2.sh, then discovers the live container app via
+# az containerapp list (or honours SVC_APP_NAME_OVERRIDE + SVC_RG_OVERRIDE),
+# and exec's `az containerapp logs show`.
 #
-# Unlike `info` (which is informational and exits 0 even on partial output),
-# `logs` is gating — any access failure exits non-zero.
+# Gating — unlike `info` (which degrades), `logs` dies loudly on any
+# discovery failure. There's nothing useful to stream from "(unavailable)".
 #
 # --- noclickops metadata ---
 SCRIPT_NAME="logs"
 SCRIPT_DESCRIPTION="Show or stream the container-app logs for a service."
 SCRIPT_USAGE="noclickops logs <service> [test|prod] [--follow|-f] [--tail N] [--system]"
-SCRIPT_EXAMPLE="noclickops logs test-holderdeord test --follow"
+SCRIPT_EXAMPLE="noclickops logs frontend test --follow"
 SCRIPT_CATEGORY="inspect"
 SCRIPT_TAGS="container-app logs tail streaming follow"
-SCRIPT_DETAILS="Streams or tails container logs for a deployed service via az containerapp logs show. --follow keeps the stream open until Ctrl-C; --tail N starts with the last N lines and exits; --system includes platform logs alongside application logs. Gating — any access failure exits non-zero (unlike info which degrades)."
-SCRIPT_AUTH="az login + Reader on the subscription in \`.pipelines/variables/<env>.yaml\`."
-SCRIPT_DEPENDS_ON="az"
+SCRIPT_DETAILS="v2: reads IaC variables (subscription + common RG) from the cross-project IaC repo via ADO REST, discovers the container app via az containerapp list, and exec's az containerapp logs show. Override via SVC_APP_NAME_OVERRIDE + SVC_RG_OVERRIDE env vars. --follow keeps the stream open until Ctrl-C; --tail N starts with the last N lines and exits; --system includes platform logs. Gating — any access / discovery failure exits non-zero."
+SCRIPT_AUTH="az login + Reader on the IaC-declared subscription."
+SCRIPT_DEPENDS_ON="az git"
 SCRIPT_SEE_ALSO="info shell deploy"
 SCRIPT_FLAGS=(
   "test|Tail the test environment (default)."
@@ -39,7 +41,7 @@ _dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "$_dir/../lib/utilities.sh"
 . "$_dir/../lib/paths.sh"
 . "$_dir/../lib/metadata.sh"
-. "$_dir/../lib/service.sh"
+. "$_dir/../lib/service-v2.sh"
 unset _dir
 
 case "${1:-}" in -h|--help) show_help "$0"; exit 0 ;; esac
@@ -48,17 +50,13 @@ service="${1:-}"
 [ -n "$service" ] || die "Usage: $SCRIPT_USAGE"
 shift
 
-# Second positional, if present and not a flag, MUST be test|prod.
-# Catches typos like 'logs myapp staging' with a useful error instead of
-# misclassifying the env as an unknown flag.
 env="test"
 case "${1:-}" in
   test|prod) env="$1"; shift ;;
-  ''|-*)     ;;  # no second positional, or it's a flag — env stays default
+  ''|-*)     ;;
   *)         die "Invalid environment '$1' (expected: test | prod)" ;;
 esac
 
-# Remaining args: flags only.
 follow=0
 system=0
 tail=100
@@ -81,38 +79,38 @@ case "$tail" in
   ''|*[!0-9]*) die "--tail must be numeric: '$tail'" ;;
 esac
 
-[ -n "$TARGET_REPO" ] || die "Not inside a git repository. cd into a repo and re-run."
+[ -n "${TARGET_REPO:-}" ] || die "Not inside a git repository. cd into a repo and re-run."
 
-# resolve_service_context dies on unknown service / invalid env / missing yamls.
-resolve_service_context "$service" "$env" "$TARGET_REPO"
+read_iac_variables "$env"
 
-require_cmd az
-az account show >/dev/null 2>&1 || die "Not logged in to Azure. Run: az login"
-
-# Fail-closed on subscription access — logs is gating.
-try_az_subscription "$SVC_SUBSCRIPTION_ID" || exit 1
-
-# Locate the container app by SVC_NAME-contains in the computed RG.
-app_name="$(az containerapp list \
-  --subscription "$SVC_SUBSCRIPTION_ID" \
-  --resource-group "$SVC_RESOURCE_GROUP" \
-  --query "[?contains(name, '$SVC_NAME')] | [0].name" \
-  -o tsv 2>/dev/null || true)"
-
-if [ -z "$app_name" ] || [ "$app_name" = "None" ]; then
-  die "No container app found in $SVC_RESOURCE_GROUP matching '$SVC_NAME'.
-Has it been deployed yet?  noclickops deploy $SVC_NAME $SVC_ENV --watch"
+if [ -z "${NCO_AZ_OVERRIDE:-}" ]; then
+  require_cmd az
+  az account show >/dev/null 2>&1 || die "Not logged in to Azure. Run: az login"
 fi
 
-# Build the az invocation. exec replaces our process so Ctrl-C terminates
-# cleanly during --follow without bash trapping the signal.
+# discover_containerapp dies on full failure — perfect gating behaviour.
+discover_output=$(discover_containerapp "$service")
+ca_name=""; ca_rg=""
+while IFS='=' read -r k v; do
+  case "$k" in
+    name)           ca_name="$v" ;;
+    resource_group) ca_rg="$v" ;;
+  esac
+done <<< "$discover_output"
+
+[ -n "$ca_name" ] || die "discover_containerapp returned no name for '$service'"
+[ -n "$ca_rg" ]   || die "discover_containerapp returned no resource group for '$service'"
+
+sub="${IAC_SUBSCRIPTION_ID:-}"
+[ -n "$sub" ] || die "IAC_SUBSCRIPTION_ID is empty (check IaC ${env}.yaml)"
+
 args=(containerapp logs show
-  --name "$app_name"
-  --resource-group "$SVC_RESOURCE_GROUP"
-  --subscription "$SVC_SUBSCRIPTION_ID"
+  --name "$ca_name"
+  --resource-group "$ca_rg"
+  --subscription "$sub"
   --tail "$tail")
 [ "$follow" -eq 1 ] && args+=(--follow)
 [ "$system" -eq 1 ] && args+=(--type system)
 
-log_info "Container app: $app_name (env: $env, tail: $tail$([ "$follow" -eq 1 ] && printf ', follow')$([ "$system" -eq 1 ] && printf ', system'))"
-exec az "${args[@]}"
+log_info "Container app: $ca_name (env: $env, tail: $tail$([ "$follow" -eq 1 ] && printf ', follow')$([ "$system" -eq 1 ] && printf ', system'))"
+exec "${NCO_AZ_OVERRIDE:-az}" "${args[@]}"
