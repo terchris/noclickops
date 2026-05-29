@@ -63,7 +63,7 @@ EOF
 variables:
   ENVIRONMENT: "prod"
   SUBSCRIPTION_ID: ""
-  COMMON_RESOURCE_GROUP_NAME: "rg-prod-myteam-frontend-common"
+  COMMON_RESOURCE_GROUP_NAME: "rg-prod-nrx-frt-common"
 EOF
 }
 
