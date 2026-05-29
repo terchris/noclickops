@@ -46,6 +46,8 @@ require_az
 # Source the v2 lib so `nco_git` is available for ADO-authed git operations.
 . "$(dirname "${BASH_SOURCE[0]}")/../lib/service-v2.sh"
 
+nco_command_header "PR #$pr_id in $AZDO_REPO"
+
 # Shared squash-complete + wait logic (since v1.3.0 — same helper used by
 # bin/add-service.sh's auto-merge path).
 squash_complete_pr "$pr_id" || exit 1

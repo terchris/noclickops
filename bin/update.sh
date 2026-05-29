@@ -43,6 +43,8 @@ esac
 
 require_cmd git
 
+nco_command_header "pull latest noclickops"
+
 log_step "Updating noclickops at $NOCLICKOPS_DIR"
 
 # Refuse to operate if the install dir isn't a git checkout — PLAN-002's

@@ -50,6 +50,8 @@ require_az
 # Source lib/service-v2.sh for nco_git (ADO-authed via az token).
 . "$(dirname "${BASH_SOURCE[0]}")/../lib/service-v2.sh"
 
+nco_command_header "'$title' ($branch → main) in $AZDO_REPO"
+
 # Push + set upstream if the branch has no tracking ref yet.
 if ! git rev-parse --abbrev-ref --symbolic-full-name '@{u}' >/dev/null 2>&1; then
   log_info "Pushing $branch to origin (setting upstream)..."

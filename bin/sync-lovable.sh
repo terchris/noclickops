@@ -57,6 +57,8 @@ require_cmd rsync
 [ -n "$TARGET_REPO" ] || die "Not inside a git repository. cd into a repo and re-run."
 cd "$TARGET_REPO"
 
+nco_command_header "sync $src → $service"
+
 dest="services/$service"
 [ -d "$dest" ] || die "No such service folder: $dest"
 [ -f "$dest/service.yaml" ] || die "$dest has no service.yaml — is it a real service folder?"

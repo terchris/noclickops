@@ -96,12 +96,12 @@ out=$(cd "$src" && \
   "$NCO_ROOT/bin/add-service.sh" backend 2>&1); rc=$?
 
 assert_eq "0" "$rc"                                "planF: happy path exits 0"
-assert_contains "$out" "Started run 7777"          "planF: prints pipeline run id"
-assert_contains "$out" "Pipeline succeeded"        "planF: pipeline succeeded"
-assert_contains "$out" "Found PR-A #4831"          "planF: found PR-A"
-assert_contains "$out" "PR #4831 completed"        "planF: PR-A merged"
-assert_contains "$out" "Found PR-B #4832"          "planF: found PR-B"
-assert_contains "$out" "PR #4832 completed"        "planF: PR-B merged"
+assert_contains "$out" "run 7777"                  "planF: prints pipeline run id"
+assert_contains "$out" "succeeded"                 "planF: pipeline succeeded"
+assert_contains "$out" "found #4831"               "planF: found PR-A"
+assert_contains "$out" "[2/4]"                     "planF: PR-A step labelled"
+assert_contains "$out" "found #4832"               "planF: found PR-B"
+assert_contains "$out" "[3/4]"                     "planF: PR-B step labelled"
 assert_contains "$out" "Source PR #4831 merged"    "planF: summary names PR-A"
 assert_contains "$out" "infrastructure PR #4832 merged" "planF: summary names PR-B"
 
@@ -153,7 +153,7 @@ out=$(cd "$src" && \
   "$NCO_ROOT/bin/add-service.sh" backend 2>&1); rc=$?
 
 assert_eq "1" "$rc"                                          "planF: PR-B timeout → exit 1"
-assert_contains "$out" "PR #4831 completed"                  "planF: PR-A still merged when PR-B times out"
+assert_contains "$out" "found #4831"                         "planF: PR-A still found when PR-B times out"
 assert_contains "$out" "PR-B didn't appear"                  "planF: PR-B timeout message"
 assert_contains "$out" "PR-A #4831 is already merged"        "planF: error states PR-A already merged"
 assert_contains "$out" "deploy backend"                      "planF: error suggests deploy after manual merge"

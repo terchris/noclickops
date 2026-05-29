@@ -81,6 +81,13 @@ esac
 
 [ -n "${TARGET_REPO:-}" ] || die "Not inside a git repository. cd into a repo and re-run."
 
+_logs_summary="$service ($env, --tail $tail"
+[ "$follow" -eq 1 ] && _logs_summary+=", --follow"
+[ "$system" -eq 1 ] && _logs_summary+=", --system"
+_logs_summary+=")"
+nco_command_header "$_logs_summary"
+unset _logs_summary
+
 read_iac_variables "$env"
 
 if [ -z "${NCO_AZ_OVERRIDE:-}" ]; then
