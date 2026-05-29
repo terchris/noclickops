@@ -125,7 +125,7 @@ The remote check is cached for 1 hour to keep the lister snappy. Failures (netwo
 
 This repo uses a structured AI-developer workflow — see [`CLAUDE.md`](CLAUDE.md) (or [`AGENTS.md`](AGENTS.md) for Codex) for the entry point.
 
-The v1 surface was built across the PLANs documented in [`website/docs/ai-developer/plans/completed/`](website/docs/ai-developer/plans/completed/) — design rationale, completion notes, and per-PLAN smoke-test results are all there.
+The v1 surface was built across the PLANs documented in [`website/docs/ai-developer/plans/completed/`](https://github.com/terchris/noclickops/tree/main/website/docs/ai-developer/plans/completed/) — design rationale, completion notes, and per-PLAN smoke-test results are all there.
 
 ### Running the test suite
 
