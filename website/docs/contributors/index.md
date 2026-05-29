@@ -12,6 +12,7 @@ Internal docs for people working **on** noclickops — not just using it. If you
 | Doc | When to read it |
 |---|---|
 | [Target layout reference](./target-layout-reference.md) | Before changing any command that touches an Azure DevOps repo. Documents the Red Cross ADO + Azure layout noclickops targets, as observed in the wild. Re-verify after every Azure-engineer-side change. |
+| [`lib/service-v2.sh`](./lib-service-v2.md) | When writing or modifying v2 commands. Documents the v2 discovery library — public API, discovery-vs-derivation-vs-override pattern, test shims, and the manual smoke procedure. |
 
 ## What's not here yet (but will be, as the questions come up)
 
