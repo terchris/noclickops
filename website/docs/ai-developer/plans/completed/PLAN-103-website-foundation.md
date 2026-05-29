@@ -11,7 +11,7 @@
 
 **Last Updated**: 2026-05-29
 
-**Investigation**: [INVESTIGATE-docusaurus.md](../backlog/INVESTIGATE-docusaurus.md) (DCT pivot at 2026-05-29; this PLAN realises rows A1–A5, A6 partial, A7 deferred to PLAN-105)
+**Investigation**: [INVESTIGATE-docusaurus.md](INVESTIGATE-docusaurus.md) (DCT pivot at 2026-05-29; this PLAN realises rows A1–A5, A6 partial, A7 deferred to PLAN-105)
 
 **Prerequisites**: none — `website/docs/ai-developer/` already contains the source markdown this PLAN renders.
 
@@ -27,7 +27,7 @@
 
 `website/docs/ai-developer/` already exists and reads like a Docusaurus docs tree (folder-as-category, `[link](../FILE.md)` relative refs, `_category_.json`-shaped subfolders) — but there's no Docusaurus app to render it. GitHub's raw-markdown view works, but visitors get no sidebar, no search, no rendered Mermaid, no shareable section URLs. The repo's branding (`README.md` line 5: "no clickops") deserves a real site.
 
-DCT (`/Users/terje.christensen/learn/helpers/devcontainer-toolbox/website/`) is the reference: same Docusaurus 3.9.2 stack, same metadata-driven approach noclickops already uses, identical local-search + Mermaid choices. Locked-in answers (see [INVESTIGATE-docusaurus.md](../backlog/INVESTIGATE-docusaurus.md) "Locked-in decisions" table):
+DCT (`/Users/terje.christensen/learn/helpers/devcontainer-toolbox/website/`) is the reference: same Docusaurus 3.9.2 stack, same metadata-driven approach noclickops already uses, identical local-search + Mermaid choices. Locked-in answers (see [INVESTIGATE-docusaurus.md](INVESTIGATE-docusaurus.md) "Locked-in decisions" table):
 
 - **[Q1a]** Brand colour: terminal green.
 - **[Q4a]** Public URL: `https://noclickops.sovereignsky.no` (DNS work + deploy in PLAN-104).

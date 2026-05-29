@@ -13,7 +13,7 @@ Site live at [`https://noclickops.sovereignsky.no/`](https://noclickops.sovereig
 
 **Last Updated**: 2026-05-29
 
-**Investigation**: [INVESTIGATE-docusaurus.md](../backlog/INVESTIGATE-docusaurus.md) (realises rows A4 — deploy workflow — and the [Q4a] / [Q9b] decisions)
+**Investigation**: [INVESTIGATE-docusaurus.md](INVESTIGATE-docusaurus.md) (realises rows A4 — deploy workflow — and the [Q4a] / [Q9b] decisions)
 
 **Prerequisites**: PLAN-103 (the site must build before there's anything to deploy).
 

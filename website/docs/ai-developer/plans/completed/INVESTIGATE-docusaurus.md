@@ -5,7 +5,9 @@
 > - [WORKFLOW.md](../../WORKFLOW.md) — the implementation process
 > - [PLANS.md](../../PLANS.md) — plan structure and best practices
 
-## Status: Backlog — decisions locked, ready to draft child PLANs
+## Status: Completed 2026-05-29
+
+All three child PLANs shipped: PLAN-103 (foundation), PLAN-104 (deploy → `https://noclickops.sovereignsky.no/`), PLAN-105 (homepage + generator → `v1.4.0`). See each PLAN's completion notes in `plans/completed/` for what landed and what didn't.
 
 **Goal**: Decide *what* Docusaurus setup `noclickops` needs and *how much* of an existing sister project's Docusaurus setup to copy. Land a v1 that publishes the existing `website/docs/` markdown to a browsable site AND renders a marketing homepage that shows what noclickops does — without dragging in template-catalogue machinery that has no equivalent here.
 
