@@ -16,6 +16,12 @@
 #     SCRIPT_AUTH="<auth prerequisites, one line>"
 #     SCRIPT_SEE_ALSO="<space-separated command names>"
 #     SCRIPT_DEPENDS_ON="<space-separated CLI names>"
+#
+#   v1.6.6 also adds a single header helper:
+#     nco_command_header "<summary>"   — prints
+#       "noclickops <SCRIPT_NAME> v<version> — <summary>"
+#     Each bin/<cmd>.sh calls this once after arg-parse + pre-flight,
+#     so the header appears only when work is about to happen.
 #     SCRIPT_FLAGS=(           # bash array: "flag|description" per row
 #       "--watch|Watch the pipeline run to completion"
 #       "-h,--help|Show this help and exit"
@@ -38,6 +44,28 @@ unset _meta_dir
 
 # Valid categories — kept here so the lister and individual scripts agree.
 _NCO_VALID_CATEGORIES="meta git deploy service-lifecycle inspect"
+
+# nco_command_header <summary>
+# Print the standard command header line:
+#   noclickops <SCRIPT_NAME> v<version> — <summary>
+#
+# Each bin/<cmd>.sh calls this once after arg-parsing (and AFTER any
+# --help early-exit), so the header announces "what's about to happen"
+# only when the command actually runs.
+#
+# SCRIPT_NAME must already be set (it's at the top of every bin/ script).
+nco_command_header() {
+  local summary="${1:-}"
+  nco_load_version 2>/dev/null || true
+  local ver="${NCO_VERSION:-?.?.?}"
+  if [ -n "$summary" ]; then
+    printf '\n%snoclickops %s v%s%s — %s\n\n' \
+      "${_NCO_BOLD:-}" "${SCRIPT_NAME:-?}" "$ver" "${_NCO_NC:-}" "$summary"
+  else
+    printf '\n%snoclickops %s v%s%s\n\n' \
+      "${_NCO_BOLD:-}" "${SCRIPT_NAME:-?}" "$ver" "${_NCO_NC:-}"
+  fi
+}
 
 valid_category() {
   local cat="$1"

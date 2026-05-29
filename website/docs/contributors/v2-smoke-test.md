@@ -332,14 +332,25 @@ Phase 5 NOT-RUN is acceptable for routine smokes; full verdict still PASS.
 
 (Each smoke run appends a result block here. Most recent at the bottom.)
 
-{/* Append blocks below this comment. Most recent at the bottom. Template:
+### 1.6.0 → 1.6.5 — 2026-05-29 — runner: Terje (via Claude)
 
-### 1.6.0 — 2026-05-29 — runner: Terje
+Target repo: `TCH900001-mrkmedlem` (Red Cross). Initial v1.6.0 run failed at Phase 2; each subsequent v1.6.x patched a specific real-az-API gap the stubbed tests couldn't catch. Final clean run on **v1.6.5** with service `smk3`.
 
-- Phase 1: PASS
-- Phase 2: PASS (PR-A #X, PR-B #Y both merged in ~3 min)
-- Phase 3: PASS (4-pipeline chain ~9m12s)
-- Phase 4: PASS
+Patches shipped during the smoke (each ships an immediate PR):
 
-Verdict: PASS — clear to bump 1.6.0 → 2.0.0.
-*/}
+| Version | Finding |
+|---|---|
+| 1.6.1 | `watch_run` mis-parsed `az --query "[a,b]" -o tsv` — outputs lines, not tabs. Fixed: two separate queries when run hits terminal state. |
+| 1.6.2 | `pr update/show/set-vote` reject `--project` flag (PR ids are org-unique). Fixed: dropped `--project` from those verbs in `merge_pr_in_project`. |
+| 1.6.3 | Three-in-one: service-name max 50 → 20 chars (Container Apps 32-char limit); new `nco_git` wrapper for ADO-authed git ops via az token; fixed misleading "Local main is in sync" message when fetch silently failed. |
+| 1.6.4 | `merge-pr` switched to `nco_git` (was hanging on plain `git fetch` when user's git PAT was expired). |
+| 1.6.5 | `create-pr` switched to `nco_git` for the `git push` (was triggering macOS keychain password popup). |
+
+Final clean v1.6.5 run on service `smk3`:
+
+- Phase 1 (read-only): **PASS** (v1.6.5 lister, info degrade, missing-svc error)
+- Phase 2 (add-service): **PASS** — PR-A #4846 + PR-B #4847 auto-merged in ~30s; local sync via nco_git
+- Phase 3 (clean-sample → create-pr → merge-pr): **PASS** — PR #4848 merged via the v2 workflow, no password popup, local branch deleted
+- Phase 4 (deploy first-time + subsequent): **PASS** — 4-pipeline chain in 5m32s; re-run picked `[1/1]` subsequent path
+
+Verdict: **PASS** — promoted to 2.0.0 in a follow-up commit.

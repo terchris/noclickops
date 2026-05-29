@@ -83,6 +83,8 @@ which must fit within Azure's 32-char limit."
 
 [ -n "${TARGET_REPO:-}" ] || die "Not inside a git repository. cd into a repo and re-run."
 
+nco_command_header "scaffolding '$service' (~1-3 min, 4 steps)"
+
 if [ -d "$TARGET_REPO/services/$service" ]; then
   die "Service folder already exists: $TARGET_REPO/services/$service"
 fi
@@ -95,8 +97,8 @@ derive_azdo_context "$TARGET_REPO"
 iac_project=$(discover_iac_project)
 
 pipeline="$AZDO_REPO-add-service"
-log_step "Triggering '$pipeline' to scaffold '$service'"
-log_info  "  persistent_storage=$persistent_storage  public_endpoint=$public_endpoint"
+printf "  [1/4] Trigger add-service pipeline             (~30-60s)  "
+log_info  "params: persistent_storage=$persistent_storage  public_endpoint=$public_endpoint"
 
 run_id=$(trigger_pipeline "$AZDO_PROJECT" "$pipeline" \
   "serviceName=$service" \
@@ -104,14 +106,11 @@ run_id=$(trigger_pipeline "$AZDO_PROJECT" "$pipeline" \
   "public_endpoint=$public_endpoint")
 
 run_url="$AZDO_ORG_URL/$AZDO_PROJECT/_build/results?buildId=$run_id"
-log_success "Started run $run_id"
-echo "  $run_url"
-
-log_step "Watching pipeline"
+printf "  [1/4] Trigger add-service pipeline             (~30-60s)  run %s … " "$run_id"
 if ! watch_run "$AZDO_PROJECT" "$run_id" --timeout-min 10; then
+  echo ""
   die "Pipeline failed. See: $run_url"
 fi
-log_success "Pipeline succeeded."
 
 # --- Fire-and-forget escape hatch ---
 if [ "$no_merge" -eq 1 ]; then
@@ -133,7 +132,7 @@ fi
 source_branch="add-service-$service"
 
 # PR-A: poll up to 3 min (downstream automation creates it after pipeline)
-log_step "Waiting for PR-A in the source repo (branch: $source_branch)"
+printf "  [2/4] Wait for PR-A in source repo             (~10-30s)  "
 pr_a_poll_interval="${NCO_WATCH_INTERVAL:-10}"
 pr_a_max_polls=18   # ~3 min default
 pr_a_id=""
@@ -144,19 +143,22 @@ for _i in $(seq 1 "$pr_a_max_polls"); do
 done
 
 if [ -z "$pr_a_id" ]; then
+  echo ""
   die "PR-A didn't appear within 3 min. Check: $AZDO_ORG_URL/$AZDO_PROJECT/_git/$AZDO_REPO/pullrequests
 The pipeline may have nothing to commit, or downstream automation hasn't fired yet."
 fi
-log_info "Found PR-A #$pr_a_id"
+printf "found #%s … " "$pr_a_id"
 
 # Merge PR-A via the v2 cross-project-safe helper (works for source-project too).
-if ! merge_pr_in_project "$pr_a_id" "$AZDO_PROJECT" "$AZDO_REPO"; then
+if ! merge_pr_in_project "$pr_a_id" "$AZDO_PROJECT" "$AZDO_REPO" >/dev/null; then
+  echo ""
   die "Failed to merge PR-A #$pr_a_id.
 URL: $AZDO_ORG_URL/$AZDO_PROJECT/_git/$AZDO_REPO/pullrequest/$pr_a_id"
 fi
+echo "merged"
 
 # PR-B: poll up to 5 min (further downstream — IaC automation reacts to PR-A merge)
-log_step "Waiting for PR-B in IaC/platform-infrastructure (branch: $source_branch)"
+printf "  [3/4] Wait for PR-B in IaC/platform-infra      (~10-30s)  "
 pr_b_timeout_min="${NCO_PR_B_TIMEOUT_MIN:-5}"
 pr_b_poll_interval="${NCO_WATCH_INTERVAL:-10}"
 pr_b_max_polls=$(( pr_b_timeout_min * 60 / (pr_b_poll_interval > 0 ? pr_b_poll_interval : 1) ))
@@ -169,33 +171,35 @@ for _i in $(seq 1 "$pr_b_max_polls"); do
 done
 
 if [ -z "$pr_b_id" ]; then
+  echo ""
   log_error "PR-B didn't appear in $iac_project/platform-infrastructure within ${pr_b_timeout_min} min."
   echo "  PR-A #$pr_a_id is already merged. PR-B is required for first-time deploys."
   echo "  Check: $AZDO_ORG_URL/$iac_project/_git/platform-infrastructure/pullrequests"
   echo "  When PR-B appears, merge it manually, then run: noclickops deploy $service test"
   exit 1
 fi
-log_info "Found PR-B #$pr_b_id"
+printf "found #%s … " "$pr_b_id"
 
-if ! merge_pr_in_project "$pr_b_id" "$iac_project" platform-infrastructure; then
+if ! merge_pr_in_project "$pr_b_id" "$iac_project" platform-infrastructure >/dev/null; then
+  echo ""
   log_error "Failed to merge PR-B #$pr_b_id."
   echo "  PR-A #$pr_a_id is already merged. PR-B URL:"
   echo "  $AZDO_ORG_URL/$iac_project/_git/platform-infrastructure/pullrequest/$pr_b_id"
   echo "  Merge PR-B manually, then run: noclickops deploy $service test"
   exit 1
 fi
+echo "merged"
 
 # Sync local main using nco_git (auths to ADO via az token).
 # Skipped in test mode where origin is a stubbed URL.
 if [ -z "${NCO_AZ_OVERRIDE:-}" ]; then
-  log_step "Syncing local main"
+  printf "  [4/4] Sync local main                          (~5s)      "
   if ! nco_git fetch --prune >/dev/null 2>&1; then
-    log_warn "git fetch failed — local main NOT synced. Both PRs are merged on ADO."
-    log_warn "Run 'noclickops update' to refresh credentials, then 'git pull' manually."
+    echo "skipped — git fetch failed (PRs are merged on ADO; run 'git pull' manually)"
   elif nco_git merge --ff-only origin/main >/dev/null 2>&1; then
-    log_success "Local main synced with origin/main."
+    echo "ok"
   else
-    log_warn "Local main can't fast-forward — it has diverged from origin/main."
+    echo "warn — local main diverged from origin/main"
   fi
 fi
 

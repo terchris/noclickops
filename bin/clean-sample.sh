@@ -47,6 +47,8 @@ service="${1:-}"
 [ -n "${TARGET_REPO:-}" ] || die "Not inside a git repository. cd into a repo and re-run."
 cd "$TARGET_REPO"
 
+nco_command_header "strip Express+OIDC sample from services/$service/app/"
+
 svc_dir="services/$service"
 [ -d "$svc_dir" ] || die "No such service folder: $svc_dir"
 

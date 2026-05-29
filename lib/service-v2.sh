@@ -300,7 +300,9 @@ watch_run() {
   [ "$max_polls" -lt 1 ] && max_polls=1
 
   local start_ts=$SECONDS
-  local i status result
+  local i status result elapsed
+  local is_tty=0
+  [ -t 1 ] && is_tty=1
   for i in $(seq 1 "$max_polls"); do
     # First az call: status only. `az --query "[a,b]" -o tsv` outputs each
     # field on its own line (not tab-separated), so we use two queries when
@@ -308,22 +310,136 @@ watch_run() {
     status=$(_nco_az pipelines runs show \
       --organization "$AZDO_ORG_URL" --project "$project" \
       --id "$run_id" --query status -o tsv 2>/dev/null | head -1)
+    elapsed=$((SECONDS - start_ts))
     if [ "$status" = "completed" ]; then
       result=$(_nco_az pipelines runs show \
         --organization "$AZDO_ORG_URL" --project "$project" \
         --id "$run_id" --query result -o tsv 2>/dev/null | head -1)
-      local elapsed=$((SECONDS - start_ts))
-      [ -t 1 ] && printf '\n'
+      # Tty: overwrite the in-progress line with the final summary.
+      [ "$is_tty" = "1" ] && printf '\r\033[K'
       printf '%s (%dm %ds)\n' "${result:-unknown}" "$((elapsed / 60))" "$((elapsed % 60))"
-      [ "$result" = "succeeded" ] && return 0 || return 1
+      if [ "$result" = "succeeded" ]; then
+        return 0
+      fi
+      report_pipeline_failure "$project" "$run_id"
+      return 1
     fi
-    [ -t 1 ] && printf '.'
+    # In-progress: tty overwrites; non-tty appends a dot.
+    if [ "$is_tty" = "1" ]; then
+      printf '\r\033[K▶ in-progress (%ds)…' "$elapsed"
+    else
+      printf '.'
+    fi
     [ "$poll_interval" -gt 0 ] && sleep "$poll_interval"
   done
 
-  [ -t 1 ] && printf '\n'
+  [ "$is_tty" = "1" ] && printf '\r\033[K'
   printf 'timed out after %dm\n' "$timeout_min"
   return 1
+}
+
+# report_pipeline_failure <project> <run-id>
+# Fetch the failed run's timeline via ADO REST, extract the most-specific
+# failure message, match it against the action-pattern table, and print
+# a formatted block to STDERR with a Step / Error / Action / Full-log
+# section. Called by watch_run on terminal-failed before it returns 1.
+#
+# Format:
+#
+#   ✗ FAILED: <pipeline-name> (run <id>, <elapsed>)
+#
+#     Step:    <failed step name>
+#     Error:   <reformatted reason>
+#     Action:  → <pattern-matched hint>
+#
+#     Full log: <web URL>
+#
+# Falls back to a "see full log" line if the timeline fetch fails or no
+# usable issue messages are found — never makes things worse than the
+# previous bare-URL behaviour.
+report_pipeline_failure() {
+  local project="${1:-}" run_id="${2:-}"
+  [ -n "$project" ] && [ -n "$run_id" ] || return 1
+
+  local url="${AZDO_ORG_URL:-}/${project}/_apis/build/builds/${run_id}/timeline?api-version=7.0"
+  local web_url="${AZDO_ORG_URL:-}/${project}/_build/results?buildId=${run_id}"
+
+  # Get pipeline name + elapsed time. Best effort — keep going if it fails.
+  local pipeline_name=""
+  pipeline_name=$(_nco_az pipelines runs show \
+    --organization "$AZDO_ORG_URL" --project "$project" \
+    --id "$run_id" --query definition.name -o tsv 2>/dev/null | head -1)
+
+  # Fetch timeline. If this fails (network, auth), fall back gracefully.
+  local timeline=""
+  timeline=$(_nco_ado_rest_get "$url" 2>/dev/null) || true
+  if [ -z "$timeline" ] || ! command -v python3 >/dev/null 2>&1; then
+    printf '\n  Full log: %s\n\n' "$web_url" >&2
+    return 0
+  fi
+
+  # Extract the failed step name + last non-empty issue message.
+  local step_msg
+  step_msg=$(printf '%s' "$timeline" | python3 -c "
+import json, sys
+try:
+    data = json.load(sys.stdin)
+except Exception:
+    sys.exit(0)
+for r in data.get('records', []):
+    if r.get('result') != 'failed':
+        continue
+    issues = r.get('issues') or []
+    msgs = [i.get('message', '').strip() for i in issues if i.get('message', '').strip()]
+    if not msgs:
+        continue
+    # Pick the LAST non-empty (most specific).
+    print(r.get('name', '?'))
+    print(msgs[-1])
+    break
+" 2>/dev/null)
+
+  if [ -z "$step_msg" ]; then
+    printf '\n  Full log: %s\n\n' "$web_url" >&2
+    return 0
+  fi
+
+  local step_name; step_name=$(printf '%s\n' "$step_msg" | head -1)
+  local raw_msg;   raw_msg=$(printf '%s\n' "$step_msg" | tail -n +2)
+
+  # Pattern-match the action.
+  local action="See full log for details. If this happens repeatedly, file a finding."
+  local clean_msg="$raw_msg"
+  case "$raw_msg" in
+    *"cannot be saved, because this would overwrite an existing deployment"*)
+      action="Wait ~3 min for the prior deploy to complete, then retry."
+      # Strip the verbose subscription path + correlation id from the message.
+      clean_msg=$(printf '%s' "$raw_msg" | sed -E "s|/subscriptions/[^']+'|<sub>'|g; s/with correlationId '[^']+'//; s/Please see https:[^.]*\. ?//; s/ +/ /g")
+      ;;
+    *"ContainerAppInvalidName"*)
+      action="Service name too long. The full container app name 'ca-<env>-<TENANT>-<svc>' must fit Azure's 32-char limit; rename the service to <= 20 chars."
+      ;;
+    *"AuthorizationFailed"*|*"does not have authorization"*)
+      action="You don't have the required role on the subscription. Ask your admin or check PIM eligibility for the subscription named in the error."
+      ;;
+    *"ResourceGroupNotFound"*|*"Resource group not found"*)
+      action="The IaC PR-B may not be merged yet. Check IaC/platform-infrastructure for an open PR titled 'Add service <svc>'."
+      ;;
+    *"Trivy"*"CRITICAL"*|*"vulnerabilities"*"CRITICAL"*)
+      action="Image has critical CVEs. Bump the base image in services/<svc>/Dockerfile and re-deploy."
+      ;;
+  esac
+
+  # Word-wrap the cleaned message to ~75 chars per line.
+  local wrapped
+  wrapped=$(printf '%s' "$clean_msg" | fold -s -w 75 | sed 's/^/           /' | sed '1s/^           /         /')
+
+  printf '\n' >&2
+  printf '  %s\n' "  ${pipeline_name:-pipeline} (run $run_id)" >&2
+  printf '  %s\n' "Step:    $step_name" >&2
+  printf '  Error: %s\n' "${wrapped:-$clean_msg}" >&2
+  printf '  Action:  → %s\n' "$action" >&2
+  printf '\n  Full log: %s\n\n' "$web_url" >&2
 }
 
 # _v2_pipeline_succeeded_count <project> <pipeline-id>

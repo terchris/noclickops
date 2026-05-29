@@ -56,6 +56,12 @@ fi
 derive_azdo_context "$TARGET_REPO"
 require_az
 
+if [ -n "$run_id" ]; then
+  nco_command_header "run $run_id in $AZDO_REPO"
+else
+  nco_command_header "recent runs in $AZDO_REPO"
+fi
+
 # --- List mode (no run-id given) ---
 if [ -z "$run_id" ]; then
   log_step "Recent runs in $AZDO_REPO (last 20)"

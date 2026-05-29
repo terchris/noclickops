@@ -64,6 +64,8 @@ case "$env" in test|prod) ;; *) die "env must be 'test' or 'prod' (got '$env')" 
 
 [ -n "${TARGET_REPO:-}" ] || die "Not inside a git repository. cd into a repo and re-run."
 
+nco_command_header "$service ($env)"
+
 read_service_config "$service" "$env"
 read_iac_variables  "$env"
 

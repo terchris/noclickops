@@ -87,6 +87,8 @@ done
 
 [ -n "${TARGET_REPO:-}" ] || die "Not inside a git repository. cd into a repo and re-run."
 
+nco_command_header "$service ($env, cmd: $cmd)"
+
 read_iac_variables "$env"
 
 if [ -z "${NCO_AZ_OVERRIDE:-}" ]; then

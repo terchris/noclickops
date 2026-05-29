@@ -67,6 +67,8 @@ done
 
 [ -n "${TARGET_REPO:-}" ] || die "Not inside a git repository. cd into a repo and re-run."
 
+nco_command_header "$service → $env"
+
 # Load context. read_iac_variables gives us subscription / DNS zone for the
 # summary line; read_service_config tells us whether the service is public.
 read_service_config "$service" "$env"
