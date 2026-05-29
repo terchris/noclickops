@@ -358,7 +358,7 @@ cd website && npm run build  # clean
 - [x] 7.1 Split into 4 commits per the suggested chunks (generator / homepage+components / CI+cleanup / v1.4.0 ship).
 - [x] 7.2 `git push` — 4 commits to `origin/feat/v1.4.0-docusaurus`.
 - [x] 7.3 No new CI deploy from this push (the temporary feat-branch trigger was removed in commit 3). Live site reflects PLAN-104's last deploy until the PR merges to main.
-- [x] 7.4 PR opened: <https://github.com/terchris/noclickops/pull/11>
+- [x] 7.4 PR opened: [#11](https://github.com/terchris/noclickops/pull/11)
 
 Original draft of Phase 7 sub-tasks (kept for the record):
 
