@@ -1,5 +1,12 @@
 #!/usr/bin/env bash
-# tests/test-PLAN-008-info.sh — coverage for lib/service.sh + bin/info.sh.
+# tests/test-PLAN-008-info.sh — coverage for lib/service.sh (v1 lib).
+#
+# Originally tested bin/info.sh too; the bin/info assertions moved to
+# tests/test-PLAN-B-info.sh when bin/info.sh switched to lib/service-v2.sh.
+# This file stays until PLAN-F's cleanup removes lib/service.sh; until
+# then, the v1 lib is still sourced by bin/logs.sh / bin/shell.sh /
+# bin/deploy.sh and these assertions catch lib-level regressions.
+#
 # No real az calls.
 
 set -uo pipefail
@@ -106,59 +113,8 @@ assert_eq "1" "$rc"                                       "resolve: missing comm
 assert_contains "$out" "Repo-level variables missing"     "resolve: missing common.yaml message"
 rm -rf "$repo_no_common"
 
-# --- bin/info.sh integration ---
-
-# 1. Lister shows info under Inspect.
-out=$("$NCO_ROOT/bin/noclickops.sh" 2>&1)
-assert_contains "$out" "info" "lister shows info"
-
-# 2. --help.
-out=$("$NCO_ROOT/bin/info.sh" --help 2>&1)
-assert_contains "$out" "Category: inspect"             "info --help category"
-assert_contains "$out" "noclickops info <service>"     "info --help usage"
-
-# 3. No args → usage.
-out=$("$NCO_ROOT/bin/info.sh" 2>&1); rc=$?
-assert_eq "1" "$rc"             "info no args exit 1"
-assert_contains "$out" "Usage:" "info no args shows usage"
-
-# 4. Outside a git repo.
-out=$(cd /tmp && "$NCO_ROOT/bin/info.sh" anything 2>&1); rc=$?
-assert_eq "1" "$rc"                                  "info outside repo exit 1"
-assert_contains "$out" "Not inside a git repository" "info outside repo error"
-
-# 5. Unknown service.
-out=$(cd "$repo" && "$NCO_ROOT/bin/info.sh" ghost 2>&1); rc=$?
-assert_eq "1" "$rc"                                "info unknown service exit 1"
-assert_contains "$out" "Service 'ghost' not found" "info unknown service error"
-
-# 6. Invalid env.
-out=$(cd "$repo" && "$NCO_ROOT/bin/info.sh" myapp staging 2>&1); rc=$?
-assert_eq "1" "$rc"                          "info invalid env exit 1"
-assert_contains "$out" "Invalid environment" "info invalid env error"
-
-# 7. Happy path against fake repo — static sections must populate; the
-# live-state branch will skip (no az or no subscription access).
-out=$(cd "$repo" && "$NCO_ROOT/bin/info.sh" myapp test 2>&1)
-assert_contains "$out" "Service: myapp (test)"             "info header line"
-assert_contains "$out" "APP_NAME:          frt900x016"      "info shows APP_NAME"
-assert_contains "$out" "SUBSCRIPTION_ID:   3aec5ff4"        "info shows SUBSCRIPTION_ID"
-assert_contains "$out" "Resource group:    rg-test-nrx-frt900x016" "info shows computed RG"
-assert_contains "$out" "Port:              3000"           "info shows port"
-assert_contains "$out" "Health check:      /health"        "info shows health path"
-assert_contains "$out" "Container app (live):"             "info has live section header"
-# The live section will say one of these depending on the test env's az state:
-case "$out" in
-  *"(live state unavailable"*) pass "info live-section fails closed when az unavailable" ;;
-  *"Cannot access"*)            pass "info live-section fails closed on subscription access" ;;
-  *"No container app found"*)   pass "info live-section reports no container app" ;;
-  *"Name:"*)                    pass "info live-section actually populated (az + access available)" ;;
-  *)                            fail "info live-section path" "got: $out" ;;
-esac
-
-# 8. Portability grep stays clean.
-matches=$(grep -E -r 'ExampleOrg|FrontendPlatform|JKL900X016' "$NCO_ROOT/bin" "$NCO_ROOT/lib" 2>/dev/null || true)
-assert_eq "" "$matches" "portability: no hardcoded ADO identity in bin/ or lib/"
+# bin/info.sh integration coverage moved to tests/test-PLAN-B-info.sh
+# when bin/info.sh switched to lib/service-v2.sh in PLAN-B.
 
 rm -rf "$repo"
 

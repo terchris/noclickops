@@ -1,20 +1,23 @@
 #!/usr/bin/env bash
-# bin/shell.sh — open an interactive shell inside a running container app.
+# bin/shell.sh — open an interactive shell inside a running container app (v2).
 #
-# Same lib/service.sh chain as bin/logs.sh; the difference is the final
-# az call (containerapp exec vs containerapp logs show) and the default
-# entry command.
+# Same v2 discovery chain as bin/logs.sh; the difference is the final az
+# call (containerapp exec vs containerapp logs show) and the default entry
+# command (/bin/sh).
+#
+# Gating — dies loudly on any discovery failure. You can't shell into
+# "(unavailable)".
 #
 # --- noclickops metadata ---
 SCRIPT_NAME="shell"
 SCRIPT_DESCRIPTION="Open an interactive shell in the live container app for a service."
 SCRIPT_USAGE="noclickops shell <service> [test|prod] [--command CMD] [--container NAME] [--revision NAME]"
-SCRIPT_EXAMPLE="noclickops shell test-holderdeord test"
+SCRIPT_EXAMPLE="noclickops shell frontend test"
 SCRIPT_CATEGORY="inspect"
 SCRIPT_TAGS="exec shell container-app interactive sh"
-SCRIPT_DETAILS="Opens an interactive /bin/sh inside the running container of a deployed service via az containerapp exec. Use --command to run a single command non-interactively. --container picks a non-default container in a multi-container app; --revision picks a non-active revision."
-SCRIPT_AUTH="az login + Reader on the subscription in \`.pipelines/variables/<env>.yaml\`."
-SCRIPT_DEPENDS_ON="az"
+SCRIPT_DETAILS="v2: reads IaC variables (subscription + common RG) from the cross-project IaC repo via ADO REST, discovers the container app via az containerapp list, and exec's az containerapp exec for an interactive /bin/sh session. Override via SVC_APP_NAME_OVERRIDE + SVC_RG_OVERRIDE. --command runs a single command non-interactively; --container picks a non-default container in a multi-container app; --revision picks a non-active revision."
+SCRIPT_AUTH="az login + Reader on the IaC-declared subscription."
+SCRIPT_DEPENDS_ON="az git"
 SCRIPT_SEE_ALSO="info logs deploy"
 SCRIPT_FLAGS=(
   "test|Shell into the test environment (default)."
@@ -37,7 +40,7 @@ _dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "$_dir/../lib/utilities.sh"
 . "$_dir/../lib/paths.sh"
 . "$_dir/../lib/metadata.sh"
-. "$_dir/../lib/service.sh"
+. "$_dir/../lib/service-v2.sh"
 unset _dir
 
 case "${1:-}" in -h|--help) show_help "$0"; exit 0 ;; esac
@@ -46,16 +49,13 @@ service="${1:-}"
 [ -n "$service" ] || die "Usage: $SCRIPT_USAGE"
 shift
 
-# Second positional, if present and not a flag, MUST be test|prod.
 env="test"
 case "${1:-}" in
   test|prod) env="$1"; shift ;;
-  ''|-*)     ;;  # absent or it's a flag
+  ''|-*)     ;;
   *)         die "Invalid environment '$1' (expected: test | prod)" ;;
 esac
 
-# Defaults: /bin/sh works in nginx:alpine (the Lovable Dockerfile base);
-# 'bash' isn't installed in plain alpine.
 cmd="/bin/sh"
 container=""
 revision=""
@@ -85,35 +85,37 @@ while [ $# -gt 0 ]; do
   shift
 done
 
-[ -n "$TARGET_REPO" ] || die "Not inside a git repository. cd into a repo and re-run."
+[ -n "${TARGET_REPO:-}" ] || die "Not inside a git repository. cd into a repo and re-run."
 
-resolve_service_context "$service" "$env" "$TARGET_REPO"
+read_iac_variables "$env"
 
-require_cmd az
-az account show >/dev/null 2>&1 || die "Not logged in to Azure. Run: az login"
-
-try_az_subscription "$SVC_SUBSCRIPTION_ID" || exit 1
-
-app_name="$(az containerapp list \
-  --subscription "$SVC_SUBSCRIPTION_ID" \
-  --resource-group "$SVC_RESOURCE_GROUP" \
-  --query "[?contains(name, '$SVC_NAME')] | [0].name" \
-  -o tsv 2>/dev/null || true)"
-
-if [ -z "$app_name" ] || [ "$app_name" = "None" ]; then
-  die "No container app found in $SVC_RESOURCE_GROUP matching '$SVC_NAME'.
-Has it been deployed yet?  noclickops deploy $SVC_NAME $SVC_ENV --watch"
+if [ -z "${NCO_AZ_OVERRIDE:-}" ]; then
+  require_cmd az
+  az account show >/dev/null 2>&1 || die "Not logged in to Azure. Run: az login"
 fi
 
-# Build the az invocation. exec replaces our process so stdin/stdout are
-# wired straight to az — needed for interactive shell + clean Ctrl-D/Ctrl-C.
+discover_output=$(discover_containerapp "$service")
+ca_name=""; ca_rg=""
+while IFS='=' read -r k v; do
+  case "$k" in
+    name)           ca_name="$v" ;;
+    resource_group) ca_rg="$v" ;;
+  esac
+done <<< "$discover_output"
+
+[ -n "$ca_name" ] || die "discover_containerapp returned no name for '$service'"
+[ -n "$ca_rg" ]   || die "discover_containerapp returned no resource group for '$service'"
+
+sub="${IAC_SUBSCRIPTION_ID:-}"
+[ -n "$sub" ] || die "IAC_SUBSCRIPTION_ID is empty (check IaC ${env}.yaml)"
+
 args=(containerapp exec
-  --name "$app_name"
-  --resource-group "$SVC_RESOURCE_GROUP"
-  --subscription "$SVC_SUBSCRIPTION_ID"
+  --name "$ca_name"
+  --resource-group "$ca_rg"
+  --subscription "$sub"
   --command "$cmd")
 [ -n "$container" ] && args+=(--container "$container")
 [ -n "$revision" ]  && args+=(--revision "$revision")
 
-log_info "Container app: $app_name (env: $env, cmd: $cmd${container:+, container: $container}${revision:+, revision: $revision})"
-exec az "${args[@]}"
+log_info "Container app: $ca_name (env: $env, cmd: $cmd${container:+, container: $container}${revision:+, revision: $revision})"
+exec "${NCO_AZ_OVERRIDE:-az}" "${args[@]}"

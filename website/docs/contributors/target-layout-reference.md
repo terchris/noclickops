@@ -91,7 +91,7 @@ curl -s -u ":$TOKEN" \
 
 ## Variable files
 
-The FRT-style `common.yaml` + `<env>.yaml` files **exist** for new-layout repos — at a different path than v1.5.x looks. noclickops v2 reads them from `IaC/platform-infrastructure`.
+The FRT-style `common.yaml` + `<env>.yaml` files **exist** for new-layout repos — at a different path than v1.5.x looks. noclickops v2 reads them from `IaC/platform-infrastructure` via `lib/service-v2.sh`'s `read_iac_variables`, called by `bin/info.sh` (and later `logs`, `shell`, `deploy` as those rewrite). Reads via ADO REST — no IaC repo clone needed.
 
 **Location**:
 
@@ -285,6 +285,8 @@ az repos policy list \
 ---
 
 ## Deploy: first-time vs subsequent
+
+> Implemented by `bin/deploy.sh` via `lib/service-v2.sh`'s `is_first_time_deploy` + `trigger_pipeline` + `watch_run` helpers — see PLAN-C.
 
 **First-time** for a service (no successful `<repo>-<svc>-deploy-test` runs in IaC ever):
 

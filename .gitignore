@@ -16,3 +16,9 @@ website/docs/index.md
 website/docs/commands/
 website/src/data/commands.json
 website/src/data/categories.json
+
+# Auto-generated test stubs (rewritten on every test run via tests/_fixtures.sh
+# or inline in a specific test file).
+tests/_stub_ado_rest.sh
+tests/_stub_az.sh
+tests/_stub_planD_az.sh

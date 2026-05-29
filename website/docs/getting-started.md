@@ -18,7 +18,7 @@ If you only want to install and see the surface, stop at step 3. To go further, 
 
 ### Repo layouts: which commands work where
 
-noclickops currently targets the **FRT-shaped** layout (`.pipelines/variables/{common,test,prod}.yaml` at repo root, single `<repo>-<svc>-CD` pipeline per service). A newer layout (per-service `services/<svc>/config.<env>.yaml`, split `<repo>-<svc>-build` + `<repo>-<svc>-deploy` pipelines, Azure Front Door fronting `<svc>.example.cloud`) is the direction for newly-scaffolded repos. Full v2 support for the new layout is in progress — see [INVESTIGATE-new-target-structure](/docs/ai-developer/plans/backlog/INVESTIGATE-new-target-structure).
+noclickops currently targets the **FRT-shaped** layout (`.pipelines/variables/{common,test,prod}.yaml` at repo root, single `<repo>-<svc>-CD` pipeline per service). A newer layout (per-service `services/<svc>/config.<env>.yaml`, split `<repo>-<svc>-build` + `<repo>-<svc>-deploy` pipelines, Azure Front Door fronting `<svc>.example.cloud`) is the direction for newly-scaffolded repos. Full v2 support for the new layout is in progress — see [INVESTIGATE-new-target-structure](/docs/ai-developer/plans/completed/INVESTIGATE-new-target-structure).
 
 What works on each, as of v1.5.x:
 
@@ -27,10 +27,12 @@ What works on each, as of v1.5.x:
 | `noclickops`, `update`, `--help` | ✓ | ✓ |
 | `status` | ✓ | ✓ |
 | `create-pr`, `merge-pr` | ✓ | ✓ |
-| `add-service` | ✓ | Trigger works; auto-merge misses the PR (downstream is async). Use `--no-merge`, then `merge-pr` when the PR appears (~1–2 min). |
-| `info`, `logs`, `shell` | ✓ | Fails fast with "Repo-level variables missing". v2 fixes this. |
-| `deploy` | ✓ | Fails with "no build definitions matching name `<repo>-<svc>-CD`" (new layout uses `-deploy`). v2 fixes this. |
-| `clean-sample`, `sync-lovable` | ✓ (Next.js sample / Lovable mirror) | Different sample shape; v2 refactor needed. |
+| `add-service` | ✓ | **v2** — auto-merges BOTH PR-A (source repo) and PR-B (`IaC/platform-infrastructure`). v1 silently missed PR-B; first-time deploys then failed with "pipeline not found". v2 closes that gap. `--no-merge` for fire-and-forget. Default flips to internal-only (use `--public-endpoint` to opt in). |
+| `info` | ✓ | **v2** — reads `services/<svc>/config.<env>.yaml` + IaC variables via ADO REST, discovers container app via `az containerapp list`. Public services show a `Public URL` line. |
+| `logs`, `shell` | ✓ | **v2** — discovers container app via `az containerapp list` against the IaC-declared subscription/RG; gates on discovery failure (no degraded mode). Override with `SVC_APP_NAME_OVERRIDE` + `SVC_RG_OVERRIDE`. |
+| `deploy` | ✓ | **v2** — multi-pipeline orchestration. Detects first-time vs subsequent automatically. First-time chains 4 pipelines (build → deploy → infra-build → deploy-test, ~10 min). Subsequent triggers `<repo>-<svc>-deploy` and exits; `--watch` follows the auto-triggered IaC deploy-test too. |
+| `clean-sample` | ✓ (Next.js sample) | **v2** — replaces the Express+OIDC template with a minimal Express+`/health` stub for services that don't need OIDC. Refuses if `app/server.js` has been modified. |
+| `sync-lovable` | ✓ (Lovable mirror) | Different sample shape; v2 deferred — no concrete use case yet. |
 
 ---
 
@@ -139,9 +141,42 @@ SERVICE=your-service-name   # e.g. postgrest, my-app, ...
 noclickops info $SERVICE test
 ```
 
-Expect a block of static config (APP_NAME, ENVIRONMENT, subscription id, resource group, port, replicas) plus — if your subscription Reader access is set up — the live container-app state (revision, FQDN, image tag).
+**On the new layout (v2):** three static sections (IaC repo, Service config) followed by the live container-app block. Public services with `ENABLE_PUBLIC_ENDPOINT=true` get a `Public URL: https://<svc>.<dns-zone>` line.
 
-If you see `Reader access missing on subscription <id>`, the static section still prints; the live section won't. That's the documented graceful degradation.
+```text
+Service: frontend (test)
+────────────────────────────────────────
+  Folder:             /path/to/ABC100001-myservice/services/frontend
+
+IaC repo (engineer-owned):
+  App name (IaC):     abc100001
+  Application name:   myservice
+  Team:               ABC
+  Subscription:       3aec5ff4-...
+  Common RG:          rg-test-myteam-frontend-common
+  Container registry: acrshareduw
+  DNS zone:           example.cloud
+
+Service config:
+  Port:               3000
+  Health check:       /health
+  CPU:                0.5
+  Memory:             1Gi
+  ...
+  Public endpoint:    true
+  Public URL:         https://frontend.example.cloud
+
+Live state (Azure):
+  Container app:      ca-abc100001-frontend
+  Resource group:     rg-test-myteam-frontend-common
+  Internal FQDN:      ca-abc100001-frontend....westeurope.azurecontainerapps.io
+  Status:             Running
+  Latest revision:    ca-abc100001-frontend--rev42
+  Image:              acrshareduw.azurecr.io/abc100001/frontend:latest
+  Replicas (live):    min=1, max=3
+```
+
+If you don't have Reader on the deployed subscription (or the app isn't deployed yet), the live section degrades to `(live state unavailable — set SVC_APP_NAME_OVERRIDE and SVC_RG_OVERRIDE to override, or check 'az login' ...)`. Static sections always print first.
 
 **Recent pipeline runs in this repo**
 
@@ -193,13 +228,20 @@ noclickops merge-pr <pr-id>
 
 Squash-completes the PR via `az`, polls until ADO confirms `completed`, then syncs local main and deletes the merged feature branch.
 
-**Trigger a CD pipeline**
+**Trigger a deploy (v2 multi-pipeline orchestration)**
 
 ```bash
+noclickops deploy $SERVICE test
 noclickops deploy $SERVICE test --watch
 ```
 
-Runs the pipeline `<repo>-<service>-CD` with `targetEnvironment=test`. `--watch` polls until completion. Without `--watch`, returns immediately after queueing.
+`deploy` detects whether this is a first-time or subsequent deploy for the service+env, then runs the appropriate chain:
+
+- **Subsequent deploys** (any prior successful IaC `deploy-test`): triggers `<repo>-<svc>-deploy` in the source project and exits. The IaC `deploy-test` fires automatically via resource trigger (~3-6 min). With `--watch`, polls for that IaC run and watches it too.
+
+- **First-time deploys** (no prior successful `deploy-test`): chains all four pipelines in sequence — build → deploy → infra-build → deploy-test (~10 min total). Always watches each step (chain requires it). Fail-fast: if step N fails, steps N+1 onwards don't trigger. On success, prints a summary with the derived container app name + Public URL (for services with `ENABLE_PUBLIC_ENDPOINT=true`).
+
+For first-time **public** services, Front Door custom-domain validation + cert issuance takes an additional ~30-90 min after the pipelines finish. `--watch-live` (separate plan) will poll DNS / HTTPS / cert until HTTPS-200; not yet implemented.
 
 ---
 
