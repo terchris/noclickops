@@ -31,6 +31,19 @@ SCRIPT_EXIT_CODES=(
   "0|Shell session exited cleanly (or single command ran successfully)."
   "1|Service / container / revision not found, or access denied."
 )
+SCRIPT_EXAMPLE_OUTPUT=$(cat <<'EOF'
+noclickops shell v1.7.0 — frontend (test, cmd: /bin/sh)
+
+ℹ Container app: ca-abc100001-frontend (env: test, cmd: /bin/sh)
+/app $ ls
+package.json  server.js
+/app $ exit
+
+# Gate behaviour when discovery fails:
+✗ discover_containerapp: could not find container app 'ca-abc100001-frontend' in RG 'rg-test-myteam-frontend-common' or subscription '3aec5ff4-...'.
+Set SVC_APP_NAME_OVERRIDE=<name> and SVC_RG_OVERRIDE=<rg> to override.
+EOF
+)
 # --- end metadata ---
 
 set -euo pipefail

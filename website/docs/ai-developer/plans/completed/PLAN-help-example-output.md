@@ -4,7 +4,7 @@
 > - [WORKFLOW.md](../../WORKFLOW.md) — the implementation process
 > - [PLANS.md](../../PLANS.md) — plan structure and best practices
 
-## Status: Backlog
+## Status: Completed
 
 **Goal**: Every command's `--help` output and generated docs page shows a real captured example of what the command's successful output looks like. Captured during release-gate smoke runs, redacted via `terchris/redaction-map.md`, stored in a `SCRIPT_EXAMPLE_OUTPUT` field in each `bin/<cmd>.sh`.
 
@@ -89,12 +89,12 @@ The smoke procedure documents which commands to refresh per release.
 
 ---
 
-## Phase 1: Schema + render
+## Phase 1: Schema + render — DONE
 
 ### Tasks
 
-- [ ] 1.1 In `lib/metadata.sh`, extend the metadata parser to recognize `SCRIPT_EXAMPLE_OUTPUT`. Multi-line bash strings are read at-source-time (the bash interpreter handles them); the parser just needs to know the field name + render it.
-- [ ] 1.2 Update `show_help` to render the new section. Order:
+- [x] 1.1 In `lib/metadata.sh`, extend the metadata parser to recognize `SCRIPT_EXAMPLE_OUTPUT`. Multi-line bash strings are read at-source-time (the bash interpreter handles them); the parser just needs to know the field name + render it.
+- [x] 1.2 Update `show_help` to render the new section. Order:
   1. Header (`noclickops <cmd> v<ver>`)
   2. Description
   3. Details
@@ -107,8 +107,8 @@ The smoke procedure documents which commands to refresh per release.
   10. Depends on
   11. See also
   12. Exit codes
-- [ ] 1.3 Add a placeholder `SCRIPT_EXAMPLE_OUTPUT=''` to every `bin/<cmd>.sh` (12 files). Empty is fine for v1 of this plan — values get filled by Phase 3.
-- [ ] 1.4 Tests in tests/test-PLAN-101-version-check.sh (or wherever the metadata-block tests live): `--help` renders an empty Example output section when the field is empty (or omits the section entirely — decide).
+- [x] 1.3 Add a placeholder `SCRIPT_EXAMPLE_OUTPUT=''` to every `bin/<cmd>.sh` (12 files). Empty is fine for v1 of this plan — values get filled by Phase 3.
+- [x] 1.4 Tests in tests/test-PLAN-101-version-check.sh (or wherever the metadata-block tests live): `--help` renders an empty Example output section when the field is empty (or omits the section entirely — decide).
 
 ### Validation
 
@@ -118,14 +118,14 @@ User confirms phase is complete.
 
 ---
 
-## Phase 2: Docs generator
+## Phase 2: Docs generator — DONE
 
 ### Tasks
 
-- [ ] 2.1 In `scripts/generate-docs.sh`, add parsing for `SCRIPT_EXAMPLE_OUTPUT` (multi-line string extraction from the bash source).
-- [ ] 2.2 Emit a `## Example output` section in each `website/docs/commands/<cmd>.mdx`, fenced as `text` or `bash` depending on content. Use `text` to avoid MDX trying to interpret characters inside the output.
-- [ ] 2.3 Verify in the `commands.json` data file (used by the homepage's CommandCategoryGrid) that the new field is exported so future homepage tweaks can use it.
-- [ ] 2.4 `cd website && npm run build` clean. Visit `/docs/commands/info` (or any command) in a local serve, confirm the Example output section renders.
+- [x] 2.1 In `scripts/generate-docs.sh`, add parsing for `SCRIPT_EXAMPLE_OUTPUT` (multi-line string extraction from the bash source).
+- [x] 2.2 Emit a `## Example output` section in each `website/docs/commands/<cmd>.mdx`, fenced as `text` or `bash` depending on content. Use `text` to avoid MDX trying to interpret characters inside the output.
+- [x] 2.3 Verify in the `commands.json` data file (used by the homepage's CommandCategoryGrid) that the new field is exported so future homepage tweaks can use it.
+- [x] 2.4 `cd website && npm run build` clean. Visit `/docs/commands/info` (or any command) in a local serve, confirm the Example output section renders.
 
 ### Validation
 
@@ -133,20 +133,20 @@ User confirms phase is complete.
 
 ---
 
-## Phase 3: Capture helper + first batch
+## Phase 3: Capture helper + first batch — DONE
 
 ### Tasks
 
-- [ ] 3.1 Create `scripts/refresh-example-output.sh`:
+- [x] 3.1 Create `scripts/refresh-example-output.sh`:
   - Args: `<cmd> [<args>...]`
   - Runs `noclickops <cmd> <args>` capturing stdout+stderr.
   - Pipes through `perl -i -pe '...'` with the redaction-map substitutions (load from `terchris/redaction-map.md`'s table).
   - Diffs the result against the current `SCRIPT_EXAMPLE_OUTPUT` in `bin/<cmd>.sh`.
   - With `--apply`: writes the new value (replacing the existing `SCRIPT_EXAMPLE_OUTPUT=...` block in the source).
-- [ ] 3.2 Run the helper for each of the 10-ish commands that have meaningful output (lister + update may be exceptions; verify):
+- [x] 3.2 Run the helper for each of the 10-ish commands that have meaningful output (lister + update may be exceptions; verify):
   - info / logs / shell / status / deploy / add-service / clean-sample / create-pr / merge-pr / sync-lovable
   - Use real-but-redacted captures from the most recent smoke run.
-- [ ] 3.3 Commit each `bin/<cmd>.sh` with the new `SCRIPT_EXAMPLE_OUTPUT` value populated.
+- [x] 3.3 Commit each `bin/<cmd>.sh` with the new `SCRIPT_EXAMPLE_OUTPUT` value populated.
 
 ### Validation
 
@@ -154,15 +154,15 @@ User confirms phase is complete.
 
 ---
 
-## Phase 4: Smoke procedure update + version bump
+## Phase 4: Smoke procedure update + version bump — DONE
 
 ### Tasks
 
-- [ ] 4.1 Update `website/docs/contributors/v2-smoke-test.md`:
+- [x] 4.1 Update `website/docs/contributors/v2-smoke-test.md`:
   - Add a "Refresh captured examples" sub-step at the end of Phase 1 (read-only commands) and Phase 4 (deploy commands).
   - Reference `scripts/refresh-example-output.sh` as the refresh tool.
   - Note: this is part of the release-gate; outputs that change unexpectedly are a regression signal.
-- [ ] 4.2 Bump `version.txt` → `2.1.0` (or whatever's current + 0.1.0 — minor feature add).
+- [x] 4.2 Bump `version.txt` → `2.1.0` (or whatever's current + 0.1.0 — minor feature add).
 
 ### Validation
 

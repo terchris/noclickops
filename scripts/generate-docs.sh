@@ -97,7 +97,7 @@ category_anchor() {
 
 declare -a CMD_NAMES CMD_DESCS CMD_USAGES CMD_EXAMPLES CMD_CATS CMD_FILES \
            CMD_TAGS CMD_DETAILS CMD_AUTH CMD_SEE_ALSO CMD_DEPENDS_ON \
-           CMD_FLAGS CMD_EXIT_CODES
+           CMD_FLAGS CMD_EXIT_CODES CMD_EXAMPLE_OUTPUTS
 
 parse_all_commands() {
   log_info "Parsing bin/*.sh metadata..."
@@ -110,6 +110,7 @@ parse_all_commands() {
     parsed_name=""; parsed_description=""; parsed_usage=""; parsed_example=""
     parsed_category=""; parsed_tags=""; parsed_details=""; parsed_auth=""
     parsed_see_also=""; parsed_depends_on=""; parsed_flags=""; parsed_exit_codes=""
+    parsed_example_output=""
 
     parse_metadata "$script" >/dev/null || continue
 
@@ -126,6 +127,7 @@ parse_all_commands() {
     CMD_DEPENDS_ON+=("$parsed_depends_on")
     CMD_FLAGS+=("$parsed_flags")
     CMD_EXIT_CODES+=("$parsed_exit_codes")
+    CMD_EXAMPLE_OUTPUTS+=("$parsed_example_output")
   done
   log_info "  Parsed ${#CMD_NAMES[@]} commands."
 }
@@ -295,6 +297,7 @@ emit_command_pages() {
           depends_on="${CMD_DEPENDS_ON[$i]}" \
           flags="${CMD_FLAGS[$i]}" \
           exit_codes="${CMD_EXIT_CODES[$i]}" \
+          example_output="${CMD_EXAMPLE_OUTPUTS[$i]}" \
           file="${CMD_FILES[$i]}"
     local cat_label
     cat_label="$(category_label "$cat_id")"
@@ -316,9 +319,12 @@ description: $cmd_desc
 $cmd_desc
 EOF
 
-      # Optional long-form details paragraph.
+      # Optional long-form details paragraph. Escape bare `<word>` patterns
+      # so MDX doesn't try to parse placeholder text like `<svc>` as a JSX tag.
       if [ -n "$details" ]; then
-        printf '\n%s\n' "$details"
+        local details_safe
+        details_safe=$(printf '%s' "$details" | sed -E 's/<([A-Za-z][A-Za-z0-9_-]*)>/\&lt;\1\&gt;/g')
+        printf '\n%s\n' "$details_safe"
       fi
 
       # Category + tags badge row.
@@ -340,6 +346,8 @@ EOF
         printf '## Flags\n\n| Flag | Description |\n|---|---|\n'
         while IFS='|' read -r flag flag_desc; do
           [ -n "$flag" ] || continue
+          # MDX-safe: backtick bare angle-bracket placeholders in the description.
+          flag_desc=$(printf '%s' "$flag_desc" | sed -E 's/<([A-Za-z][A-Za-z0-9_-]*)>/\&lt;\1\&gt;/g')
           printf '| `%s` | %s |\n' "$flag" "$flag_desc"
         done <<< "$flags"
         printf '\n'
@@ -348,9 +356,18 @@ EOF
       # Example.
       printf '## Example\n\n```bash\n%s\n```\n\n' "$cmd_example"
 
-      # Auth (optional).
+      # Example output (optional — captured during smoke tests, redacted via
+      # terchris/redaction-map.md). Rendered as fenced text so the page shows
+      # the user what a successful run actually looks like.
+      if [ -n "$example_output" ]; then
+        printf '## Example output\n\n```text\n%s\n```\n\n' "$example_output"
+      fi
+
+      # Auth (optional). Same MDX-safe placeholder escape.
       if [ -n "$auth" ]; then
-        printf '## Auth\n\n%s\n\n' "$auth"
+        local auth_safe
+        auth_safe=$(printf '%s' "$auth" | sed -E 's/<([A-Za-z][A-Za-z0-9_-]*)>/\&lt;\1\&gt;/g')
+        printf '## Auth\n\n%s\n\n' "$auth_safe"
       fi
 
       # Depends on (optional).
@@ -368,6 +385,7 @@ EOF
         printf '## Exit codes\n\n| Code | Meaning |\n|---|---|\n'
         while IFS='|' read -r code meaning; do
           [ -n "$code" ] || continue
+          meaning=$(printf '%s' "$meaning" | sed -E 's/<([A-Za-z][A-Za-z0-9_-]*)>/\&lt;\1\&gt;/g')
           printf '| `%s` | %s |\n' "$code" "$meaning"
         done <<< "$exit_codes"
         printf '\n'

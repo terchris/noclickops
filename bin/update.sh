@@ -26,6 +26,17 @@ SCRIPT_EXIT_CODES=(
   "0|Already up to date, or pulled cleanly."
   "1|Pull failed (e.g. unmerged local changes in the install dir)."
 )
+SCRIPT_EXAMPLE_OUTPUT=$(cat <<'EOF'
+noclickops update v1.7.0 — pull latest noclickops
+
+==> Updating noclickops at /Users/.../.noclickops
+Updating fa1b3c..7e8d9a
+Fast-forward
+ version.txt | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+✓ noclickops is up to date.
+EOF
+)
 # --- end metadata ---
 
 set -euo pipefail

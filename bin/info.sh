@@ -43,6 +43,41 @@ SCRIPT_EXIT_CODES=(
   "0|Info shown — fully or partially (with explanatory message on partial)."
   "1|Service config / IaC variables missing, invalid env, or az error not related to access."
 )
+SCRIPT_EXAMPLE_OUTPUT=$(cat <<'EOF'
+noclickops info v1.7.0 — frontend (test)
+
+Service: frontend (test)
+────────────────────────────────────────
+  Folder:             /path/to/ABC100001-myservice/services/frontend
+
+IaC repo (engineer-owned):
+  App name (IaC):     abc100001
+  Application name:   myservice
+  Team:               ABC
+  Subscription:       3aec5ff4-...
+  Common RG:          rg-test-myteam-frontend-common
+  Container registry: acrshareduw
+  DNS zone:           example.cloud
+
+Service config:
+  Port:               3000
+  Health check:       /health
+  CPU:                0.5
+  Memory:             1Gi
+  Replicas (min):     0
+  Replicas (max):     1
+  Public endpoint:    true
+  Public URL:         https://frontend.example.cloud
+
+Live state (Azure):
+  Container app:      ca-abc100001-frontend
+  Resource group:     rg-test-myteam-frontend-common
+  Status:             Running
+  Latest revision:    ca-abc100001-frontend--rev42
+  Image:              acrshareduw.azurecr.io/abc100001/frontend:latest
+  Replicas (live):    min=1, max=3
+EOF
+)
 # --- end metadata ---
 
 set -euo pipefail

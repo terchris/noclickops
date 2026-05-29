@@ -20,6 +20,20 @@ SCRIPT_EXIT_CODES=(
   "0|Merged — local main aligned to origin/main."
   "1|PR not found, blocked by branch policy, or az/git error."
 )
+SCRIPT_EXAMPLE_OUTPUT=$(cat <<'EOF'
+noclickops merge-pr v1.7.0 — PR #4842 in ABC100001-myservice
+
+==> Completing PR #4842 (squash, delete source branch)
+ℹ Waiting for completion...
+✓ PR #4842 completed.
+
+==> Syncing local main and cleaning up
+Switched to branch 'main'
+Your branch is up to date with 'origin/main'.
+✓ Deleted local branch smoke/clean-smk1
+✓ Local main synced with origin/main.
+EOF
+)
 # --- end metadata ---
 
 set -euo pipefail
