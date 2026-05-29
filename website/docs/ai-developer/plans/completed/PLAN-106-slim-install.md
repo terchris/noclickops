@@ -5,9 +5,11 @@
 > - [WORKFLOW.md](../../WORKFLOW.md)
 > - [PLANS.md](../../PLANS.md)
 
-## Status: Backlog
+## Status: Completed 2026-05-29
 
-**Goal**: Cut a fresh `noclickops` install from ~10 MB to ~250 KB by sparse-checking out only the folders users actually run from (`bin/`, `lib/`, `templates/`). `website/`, `tests/`, `.github/`, and the plans tree stay in the repo but never reach user disks.
+Shipped across **four releases** (v1.5.1, v1.5.2, v1.5.3, v1.5.4) — each refinement was small and isolated. Final install footprint: **772 KB** total (216 KB working tree + 556 KB shallow `.git/`), down from the pre-PLAN-106 ~10 MB. Working tree contains **only** `bin/ lib/ templates/ shell/ version.txt` — nothing else. See "Completion notes" at the bottom.
+
+**Goal**: Cut a fresh `noclickops` install from ~10 MB to ~250 KB by sparse-checking out only the folders users actually run from (`bin/`, `lib/`, `templates/`, `shell/`). `website/`, `tests/`, `.github/`, and the plans tree stay in the repo but never reach user disks.
 
 **Last Updated**: 2026-05-29
 
@@ -218,3 +220,60 @@ git log --oneline -3
 - `website/docs/ai-developer/plans/backlog/PLAN-106-slim-install.md` → `plans/active/` → `plans/completed/` per the convention.
 
 **No new files.**
+
+---
+
+## Completion notes (2026-05-29)
+
+Shipped over four releases as user feedback surfaced refinements:
+
+### v1.5.1 — initial slim via cone-mode sparse-checkout
+
+PR #14. `install.sh` added `git sparse-checkout init --cone` + `set bin lib templates`. After-clone hook runs on fresh installs; after-pull hook slims existing pre-v1.5.1 full installs in place. `bin/update.sh` got a header comment noting `git pull --ff-only` is sparse-aware.
+
+**Smoke-test gap surfaced**: 6 tests in `test-PLAN-002-installer.sh` failed because `shell/` (the v1.0.x dispatcher) wasn't in the sparse set. Added `shell` to the set; tests green.
+
+**Result**: working tree dropped from ~10 MB → 248 KB. `.git/` unchanged (~3 MB local; ~1.1 MB on real installs because the clone is from a remote with full history).
+
+**Hotfix PR #15**: PLAN-106's `Investigation:` link assumed sibling-folder resolution; after the move to `active/` it needed `../backlog/INVESTIGATE-plans-and-scaffolding.md`. One-line fix.
+
+### v1.5.2 — shallow clone
+
+PR #16. User feedback: `.git/` itself was still 1+ MB on real installs. Added `--depth=1` to the clone. `git pull --ff-only` (already in `update.sh`) maintains the shallow boundary over time, so `.git/` stays small forever.
+
+**Result**: `.git/` dropped from ~1 MB → ~544 KB on real installs. Total install **~800 KB**.
+
+### v1.5.3 — unrelated, shipped on a separate branch
+
+PR #17. Rich `--help` output + getting-started doc + v2 INVESTIGATE. Not part of PLAN-106; mentioned only for sequencing context.
+
+### v1.5.4 — strict slim via non-cone sparse-checkout
+
+PR #18. User feedback: v1.5.3's slim install STILL kept root-level files (`README.md`, `LICENSE`, `AGENTS.md`, `CLAUDE.md`, `install.sh`, `install.ps1`) because cone-mode always preserves the repo root. Switched to non-cone sparse-checkout with an explicit allow-list pattern:
+
+```text
+/bin/  /lib/  /templates/  /shell/  /version.txt
+```
+
+Trade-off: non-cone has known performance cliffs on large repos. noclickops is ~10 MB tracked; not a concern.
+
+Documentation update: README's slim paragraph now notes that `install.sh` itself is also dropped from disk — re-running requires curl-piping the installer again. Acceptable: the installer is documented in install instructions; rare flow.
+
+**Result**: working tree 216 KB (-40 KB). Total install **772 KB**. Working tree contents are exactly `bin lib shell templates version.txt`.
+
+### Net change vs pre-PLAN-106
+
+| Metric | Pre-PLAN-106 (v1.4.x) | Post-PLAN-106 (v1.5.4) | Reduction |
+|---|---|---|---|
+| Working tree | ~10 MB | 216 KB | **~98%** |
+| `.git/` | ~1+ MB | ~556 KB | **~50%** |
+| Total install | ~10–11 MB | **772 KB** | **~93%** |
+
+### Things that did NOT happen
+
+- No partial clone (`--filter=blob:none`) — considered, dropped (added complexity for marginal saving on top of sparse + shallow).
+- No `NOCLICKOPS_FULL_CLONE=1` opt-out env var — user explicitly cut it from the original draft. Contributors who need the full tree clone the repo directly instead of using `install.sh`.
+
+### Follow-ups
+
+None — PLAN-106 is complete. The "strict slim" principle is now memorialised in `install.sh`'s top comment block: only what's needed at runtime ships to user disks.
