@@ -689,7 +689,7 @@ out=$(bash -c "
   merge_pr_in_project 4832 IaC platform-infrastructure
 " 2>&1) && rc=0 || rc=$?
 assert_eq "1" "$rc"                                          "planF-phase1: merge_pr_in_project update failure → exit 1"
-assert_contains "$out" "failed to mark PR #4832 completed"   "planF-phase1: merge_pr_in_project prints update-failure message"
+assert_contains "$out" "FAILED to merge PR #4832"            "planF-phase1: merge_pr_in_project prints failure block header"
 
 rm -rf "$src" "$az_fixtures"
 

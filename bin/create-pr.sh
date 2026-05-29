@@ -60,10 +60,51 @@ fi
 
 log_step "Creating PR '$title' ($branch → main) in $AZDO_REPO"
 
+_create_pr_err=$(mktemp)
 pr_id="$(az repos pr create --repository "$AZDO_REPO" \
   --source-branch "$branch" --target-branch main \
   --title "$title" --description "$desc" \
-  --query pullRequestId -o tsv)"
+  --query pullRequestId -o tsv 2>"$_create_pr_err")"
+_create_pr_rc=$?
+
+if [ "$_create_pr_rc" -ne 0 ] || [ -z "$pr_id" ]; then
+  _err=$(cat "$_create_pr_err" 2>/dev/null)
+  rm -f "$_create_pr_err"
+  printf '\n  ✗ FAILED to create PR in %s\n' "$AZDO_REPO" >&2
+  case "$_err" in
+    *"TF401179"*|*"already exists"*)
+      # Try to find the existing PR id so we can suggest merge-pr directly.
+      _existing=$(az repos pr list --repository "$AZDO_REPO" --status active \
+        --query "[?sourceRefName=='refs/heads/$branch'] | [0].pullRequestId" \
+        -o tsv 2>/dev/null | head -1)
+      printf '  Reason:  An active PR for branch %s already exists.\n' "$branch" >&2
+      if [ -n "$_existing" ] && [ "$_existing" != "None" ]; then
+        printf '  Action:  → Merge the existing PR instead:\n               noclickops merge-pr %s\n' "$_existing" >&2
+      else
+        printf '  Action:  → Visit the repo PR list and merge or abandon the existing PR.\n' >&2
+      fi
+      ;;
+    *"TF401028"*|*"does not exist"*"refs/heads"*)
+      printf '  Reason:  The source branch isn'"'"'t on the remote.\n' >&2
+      printf '  Action:  → Push the branch first:\n               git push -u origin %s\n' "$branch" >&2
+      ;;
+    *"Source branch and target branch are the same"*)
+      printf '  Reason:  Source and target are both '"'"'main'"'"'.\n' >&2
+      printf '  Action:  → Create a feature branch first:\n               git checkout -b feature/<name>\n' >&2
+      ;;
+    *"Permission denied"*|*"Forbidden"*)
+      printf '  Reason:  You don'"'"'t have permission to create PRs in this repo.\n' >&2
+      printf '  Action:  → Ask your admin for Contributor / PR-create permission on %s.\n' "$AZDO_REPO" >&2
+      ;;
+    *)
+      printf '  Reason:  %s\n' "${_err:-az returned no error message}" >&2
+      printf '  Action:  → See the ADO web UI for the repo and try creating the PR manually.\n' >&2
+      ;;
+  esac
+  printf '\n' >&2
+  exit 1
+fi
+rm -f "$_create_pr_err"
 
 log_success "Created PR #$pr_id"
 echo "  $AZDO_ORG_URL/$AZDO_PROJECT/_git/$AZDO_REPO/pullrequest/$pr_id"

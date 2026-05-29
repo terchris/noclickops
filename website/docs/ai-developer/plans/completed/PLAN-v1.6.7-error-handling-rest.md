@@ -4,7 +4,7 @@
 > - [WORKFLOW.md](../../WORKFLOW.md) — the implementation process
 > - [PLANS.md](../../PLANS.md) — plan structure and best practices
 
-## Status: Backlog
+## Status: Completed
 
 **Goal**: Extend the v1.6.6 failure-handling pattern (fetch the actual reason + give an actionable next step, not "failed + URL") to the rest of the commands that currently emit cryptic ADO errors: `merge-pr` / `add-service`'s PR-merge step, `read_iac_variables` REST failures, `create-pr` errors, and `update`'s git-pull conflict.
 
@@ -131,15 +131,15 @@ Better output:
 
 ---
 
-## Phase 1: `report_pr_merge_failure` helper
+## Phase 1: `report_pr_merge_failure` helper — DONE
 
 ### Tasks
 
-- [ ] 1.1 Add `report_pr_merge_failure <project> <pr-id>` to `lib/service-v2.sh`. Calls `_nco_ado_rest_get` for `/_apis/policy/evaluations?artifactId=...`.
-- [ ] 1.2 Action table (initial 5 entries per the table above). Same data-structure format as PLAN-v1.6.6's `report_pipeline_failure`.
-- [ ] 1.3 Update `merge_pr_in_project` (v2): on `pr update` failure, call `report_pr_merge_failure` then return 1.
-- [ ] 1.4 Update `squash_complete_pr` (v1 in `lib/azdo.sh`): same treatment. Source `lib/service-v2.sh` for the helper (same source pattern that v1.6.4 introduced).
-- [ ] 1.5 Tests: stub the policy-evaluations REST response; assert the helper formats each known policy type correctly.
+- [x] 1.1 Add `report_pr_merge_failure <project> <pr-id>` to `lib/service-v2.sh`. Calls `_nco_ado_rest_get` for `/_apis/policy/evaluations?artifactId=...`.
+- [x] 1.2 Action table (initial 5 entries per the table above). Same data-structure format as PLAN-v1.6.6's `report_pipeline_failure`.
+- [x] 1.3 Update `merge_pr_in_project` (v2): on `pr update` failure, call `report_pr_merge_failure` then return 1.
+- [x] 1.4 Update `squash_complete_pr` (v1 in `lib/azdo.sh`): same treatment. Source `lib/service-v2.sh` for the helper (same source pattern that v1.6.4 introduced).
+- [x] 1.5 Tests: stub the policy-evaluations REST response; assert the helper formats each known policy type correctly.
 
 ### Validation
 
@@ -149,15 +149,15 @@ User confirms phase is complete.
 
 ---
 
-## Phase 2: `report_rest_failure` helper
+## Phase 2: `report_rest_failure` helper — DONE
 
 ### Tasks
 
-- [ ] 2.1 Add `report_rest_failure <verb> <url> <http-status> [<body>]` to `lib/service-v2.sh`.
-- [ ] 2.2 Status-action table (initial 5 entries).
-- [ ] 2.3 Update `_nco_ado_rest_get` to capture HTTP status + body on failure, return them as a structured error.
-- [ ] 2.4 Update `read_iac_variables`: on REST failure, call `report_rest_failure` then `die`. Similar for any other callers.
-- [ ] 2.5 Tests: stub REST responses with 401 / 404 / 5xx; assert formatted output for each.
+- [x] 2.1 Add `report_rest_failure <verb> <url> <http-status> [<body>]` to `lib/service-v2.sh`.
+- [x] 2.2 Status-action table (initial 5 entries).
+- [x] 2.3 Update `_nco_ado_rest_get` to capture HTTP status + body on failure, return them as a structured error.
+- [x] 2.4 Update `read_iac_variables`: on REST failure, call `report_rest_failure` then `die`. Similar for any other callers.
+- [x] 2.5 Tests: stub REST responses with 401 / 404 / 5xx; assert formatted output for each.
 
 ### Validation
 
@@ -167,13 +167,13 @@ User confirms phase is complete.
 
 ---
 
-## Phase 3: `create-pr` error mapping
+## Phase 3: `create-pr` error mapping — DONE
 
 ### Tasks
 
-- [ ] 3.1 In `bin/create-pr.sh`, wrap the `az repos pr create` call: capture stderr, pattern-match against the error table, print the formatted block + exit 1.
-- [ ] 3.2 For the "PR already exists" case: also do a `az repos pr list` to find the existing PR id and include it in the suggestion.
-- [ ] 3.3 Tests: stub az to return each known error; assert formatted output.
+- [x] 3.1 In `bin/create-pr.sh`, wrap the `az repos pr create` call: capture stderr, pattern-match against the error table, print the formatted block + exit 1.
+- [x] 3.2 For the "PR already exists" case: also do a `az repos pr list` to find the existing PR id and include it in the suggestion.
+- [x] 3.3 Tests: stub az to return each known error; assert formatted output.
 
 ### Validation
 
@@ -183,13 +183,13 @@ User confirms phase is complete.
 
 ---
 
-## Phase 4: `update` git-pull conflict diagnostics
+## Phase 4: `update` git-pull conflict diagnostics — DONE
 
 ### Tasks
 
-- [ ] 4.1 In `bin/update.sh`, after a `git pull --ff-only` failure: detect divergence pattern (uncommitted changes vs fork commits vs both) using `git status --porcelain` + `git rev-list HEAD..origin/main` + `git rev-list origin/main..HEAD`.
-- [ ] 4.2 Print the targeted message (matching the diagnosis) with the specific recovery commands.
-- [ ] 4.3 Tests: simulate each divergence pattern in a temp repo; assert the right message prints.
+- [x] 4.1 In `bin/update.sh`, after a `git pull --ff-only` failure: detect divergence pattern (uncommitted changes vs fork commits vs both) using `git status --porcelain` + `git rev-list HEAD..origin/main` + `git rev-list origin/main..HEAD`.
+- [x] 4.2 Print the targeted message (matching the diagnosis) with the specific recovery commands.
+- [x] 4.3 Tests: simulate each divergence pattern in a temp repo; assert the right message prints.
 
 ### Validation
 
@@ -199,12 +199,12 @@ User confirms phase is complete.
 
 ---
 
-## Phase 5: Docs + version bump
+## Phase 5: Docs + version bump — DONE
 
 ### Tasks
 
-- [ ] 5.1 Update `website/docs/contributors/lib-service-v2.md`: add `report_pr_merge_failure` + `report_rest_failure` to the Public API table.
-- [ ] 5.2 Bump `version.txt` → `1.6.7`.
+- [x] 5.1 Update `website/docs/contributors/lib-service-v2.md`: add `report_pr_merge_failure` + `report_rest_failure` to the Public API table.
+- [x] 5.2 Bump `version.txt` → `1.6.7`.
 
 ---
 

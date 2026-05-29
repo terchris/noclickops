@@ -53,8 +53,46 @@ if [ ! -d "$NOCLICKOPS_DIR/.git" ]; then
   die "$NOCLICKOPS_DIR is not a git checkout. Re-install via PLAN-002's installer."
 fi
 
-if ! git -C "$NOCLICKOPS_DIR" pull --ff-only; then
-  die "git pull failed in $NOCLICKOPS_DIR — resolve manually, then re-run."
+if ! git -C "$NOCLICKOPS_DIR" pull --ff-only 2>/dev/null; then
+  # Diagnose the divergence + give targeted recovery commands.
+  _ahead=$(git -C "$NOCLICKOPS_DIR" rev-list --count origin/main..HEAD 2>/dev/null || echo 0)
+  _behind=$(git -C "$NOCLICKOPS_DIR" rev-list --count HEAD..origin/main 2>/dev/null || echo 0)
+  _dirty=$(git -C "$NOCLICKOPS_DIR" status --porcelain 2>/dev/null | head -1)
+
+  printf '\n  ✗ FAILED: noclickops update — local install diverged from origin/main\n\n' >&2
+  if [ -n "$_dirty" ]; then
+    printf '  Reason:  %s has uncommitted changes (or unsupported state).\n' "$NOCLICKOPS_DIR" >&2
+  elif [ "$_ahead" -gt 0 ]; then
+    printf '  Reason:  Local install has %s commit(s) not on origin/main.\n' "$_ahead" >&2
+  else
+    printf '  Reason:  git pull --ff-only failed (sparse-checkout / shallow boundary issue?).\n' >&2
+  fi
+  printf '\n' >&2
+  printf '  Action:  Pick ONE:\n' >&2
+  printf '\n' >&2
+  printf '    a) Reset to origin (recommended; this dir is install-only, edits don'"'"'t belong here):\n' >&2
+  printf '         git -C %s fetch origin\n' "$NOCLICKOPS_DIR" >&2
+  printf '         git -C %s reset --hard origin/main\n' "$NOCLICKOPS_DIR" >&2
+  printf '\n' >&2
+  # Derive the install URL from the install dir's actual git remote so this
+  # works for forks too (portability test forbids hardcoded owner names).
+  _origin=$(git -C "$NOCLICKOPS_DIR" remote get-url origin 2>/dev/null || true)
+  _install_url=""
+  if [[ "$_origin" =~ github\.com[:/]([^/]+)/([^/.]+) ]]; then
+    _install_url="https://raw.githubusercontent.com/${BASH_REMATCH[1]}/${BASH_REMATCH[2]}/main/install.sh"
+  fi
+  printf '    b) Wipe + reinstall (always safe):\n' >&2
+  printf '         rm -rf %s && \\\n' "$NOCLICKOPS_DIR" >&2
+  if [ -n "$_install_url" ]; then
+    printf '         curl -fsSL %s | bash\n' "$_install_url" >&2
+  else
+    printf '         # then re-run the install command from your team docs\n' >&2
+  fi
+  printf '\n' >&2
+  printf '    c) If you have edits worth keeping (rare for an install dir):\n' >&2
+  printf '         cd %s && git status   # inspect manually\n' "$NOCLICKOPS_DIR" >&2
+  printf '\n' >&2
+  exit 1
 fi
 
 # Bust the version cache so the next lister call doesn't show a stale
