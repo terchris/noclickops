@@ -1,45 +1,99 @@
+/* Hero banner — atlas.sovereignsky.no layout (logo left, content right). */
+
 .heroBanner {
-  padding: 4rem 0 3rem;
+  padding: 4rem 0 5rem;
   background: linear-gradient(135deg, #0a0a0a 0%, #112614 100%);
   color: #e8f5ec;
-  text-align: center;
+  position: relative;
+  overflow: hidden;
 }
 
 [data-theme='dark'] .heroBanner {
   background: linear-gradient(135deg, #050505 0%, #0e1f10 100%);
 }
 
-.heroContainer {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
+@media screen and (max-width: 996px) {
+  .heroBanner {
+    padding: 2.5rem 0 3rem;
+  }
 }
 
-.heroLogo {
-  width: 72px;
-  height: 72px;
-  margin-bottom: 1.5rem;
+.heroContainer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4rem;
+}
+
+@media screen and (max-width: 996px) {
+  .heroContainer {
+    flex-direction: column;
+    gap: 1.5rem;
+  }
+}
+
+.heroIllustration {
+  flex: 0 0 auto;
+  width: 240px;
+}
+
+@media screen and (max-width: 996px) {
+  .heroIllustration {
+    width: 160px;
+  }
+}
+
+.heroMark {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.heroContent {
+  flex: 1;
+  max-width: 560px;
+  text-align: left;
+}
+
+@media screen and (max-width: 996px) {
+  .heroContent {
+    text-align: center;
+  }
 }
 
 .heroTitle {
   font-family: var(--ifm-font-family-monospace);
-  font-size: 3.5rem;
+  color: var(--ifm-color-primary-lighter) !important;
+  font-size: 4rem;
+  font-weight: 800;
   margin-bottom: 0.5rem;
-  color: var(--ifm-color-primary-lighter);
+  letter-spacing: -0.02em;
+}
+
+@media screen and (max-width: 996px) {
+  .heroTitle {
+    font-size: 3rem;
+  }
 }
 
 .heroSubtitle {
-  font-size: 1.25rem;
   color: #d1e3d6;
-  max-width: 640px;
-  margin: 0 auto 2rem;
+  font-size: 1.25rem;
+  font-weight: 400;
+  line-height: 1.5;
+  margin-bottom: 2rem;
 }
 
 .heroButtons {
   display: flex;
   gap: 0.75rem;
   flex-wrap: wrap;
-  justify-content: center;
+}
+
+@media screen and (max-width: 996px) {
+  .heroButtons {
+    justify-content: center;
+  }
 }
 
 /* Hero outline buttons — white border on dark hero background */
@@ -52,10 +106,4 @@
 .heroBanner :global(.button--outline):hover {
   background: rgba(255, 255, 255, 0.1);
   border-color: #fff !important;
-}
-
-@media (max-width: 720px) {
-  .heroTitle {
-    font-size: 2.5rem;
-  }
 }

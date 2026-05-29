@@ -1,6 +1,11 @@
 import {themes as prismThemes} from 'prism-react-renderer';
 import type {Config} from '@docusaurus/types';
 import type * as Preset from '@docusaurus/preset-classic';
+import fs from 'fs';
+
+// Single source of truth for the project version — bin/* and shell rcfiles
+// read the same file at runtime; the docs site reads it at build time.
+const version = fs.readFileSync('../version.txt', 'utf8').trim();
 
 // Fork-friendly: GitHub Actions auto-sets these from repo context;
 // local dev uses the defaults. See website/README.md if you fork.
@@ -71,12 +76,21 @@ const config: Config = {
     },
     navbar: {
       title: 'noclickops',
+      logo: {
+        alt: 'noclickops logo',
+        src: 'img/favicon.svg',
+      },
       items: [
         {
           type: 'docSidebar',
           sidebarId: 'docsSidebar',
           position: 'left',
           label: 'Docs',
+        },
+        {
+          type: 'html',
+          position: 'right',
+          value: `<span class="badge badge--secondary">v${version}</span>`,
         },
         {
           href: `https://github.com/${GITHUB_ORG}/${GITHUB_REPO}`,
