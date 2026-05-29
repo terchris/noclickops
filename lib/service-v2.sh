@@ -670,8 +670,71 @@ discover_containerapp() {
     fi
   fi
 
-  die "discover_containerapp: could not find container app '${derived}' in RG '${common_rg}' or subscription '${sub}'.
-Set SVC_APP_NAME_OVERRIDE=<name> and SVC_RG_OVERRIDE=<rg> to override."
+  # Couldn't find it via either query. Run a sequence of diagnostic checks
+  # so the user knows exactly which layer is the problem.
+  report_discovery_failure "$svc" "$derived" "$common_rg" "$sub"
+  die "discover_containerapp: container app not found (see above)."
+}
+
+# report_discovery_failure <svc> <derived-name> <common-rg> <subscription>
+# Run a sequence of probes against az + ADO to figure out WHICH layer is the
+# problem (az not installed; not logged in; sub not in account list; sub
+# accessible but RG missing; RG accessible but container app missing) and
+# print a formatted block with the specific failure + action. Same shape as
+# report_pipeline_failure / report_pr_merge_failure.
+report_discovery_failure() {
+  local svc="${1:-}" derived="${2:-}" common_rg="${3:-}" sub="${4:-}"
+  local reason="" action="" probe_result=""
+
+  # Probe 1: is az installed?
+  if ! command -v az >/dev/null 2>&1; then
+    reason="The 'az' CLI is not on your PATH."
+    action="Install azure-cli (https://learn.microsoft.com/cli/azure/install-azure-cli) and re-run."
+
+  # Probe 2: is the user logged in?
+  elif ! probe_result=$(_nco_az account show 2>&1 >/dev/null); then
+    reason="You're not logged in to az."
+    action="Run: az login   (then re-run this noclickops command)"
+
+  # Probe 3: is the named subscription in the user's account list?
+  elif [ -n "$sub" ] && ! _nco_az account list --query "[?id=='${sub}'].id" -o tsv 2>/dev/null | grep -q .; then
+    reason="You don't have access to subscription '${sub}'."
+    local available
+    available=$(_nco_az account list --query "[].{name:name, id:id}" -o tsv 2>/dev/null | head -10 | sed 's/^/             /')
+    action="Ask your admin for Reader on '${sub}', or use PIM to activate eligibility (look for 'TEST - FRONTEND - AZ -' or similar).
+           Subscriptions you DO have access to:
+${available:-             (none listed by az)}"
+
+  # Probe 4: sub accessible — does the common RG exist?
+  elif [ -n "$common_rg" ] && ! _nco_az group show --subscription "$sub" --name "$common_rg" >/dev/null 2>&1; then
+    reason="Subscription accessible, but resource group '${common_rg}' doesn't exist there."
+    action="The IaC PR-B for service '${svc}' may not be merged yet (RG is created by the engineer template). Check the IaC platform-infrastructure repo for an open PR titled 'Add service ${svc}'."
+
+  # Probe 5: RG accessible — is the container app there with a DIFFERENT name?
+  elif [ -n "$common_rg" ] && probe_result=$(_nco_az containerapp list \
+        --subscription "$sub" -g "$common_rg" \
+        --query "[].name" -o tsv 2>/dev/null) && [ -n "$probe_result" ]; then
+    reason="Subscription + RG accessible, but no container app named '${derived}'."
+    local apps_list
+    apps_list=$(printf '%s\n' "$probe_result" | sed 's/^/             /')
+    action="Apps that DO exist in ${common_rg}:
+${apps_list}
+           Either: (a) the deploy didn't actually create one, (b) it has a different name pattern than ca-<repo-prefix>-<svc>, or (c) it's in a different RG.
+           Override the lookup: SVC_APP_NAME_OVERRIDE=<one of the above> SVC_RG_OVERRIDE=${common_rg} noclickops <cmd> ..."
+
+  # Probe 6: RG empty / not queryable but sub-wide list works
+  else
+    reason="Container app '${derived}' is not in RG '${common_rg}' OR subscription '${sub}', but az + sub access work."
+    action="The deploy likely didn't complete. Check: noclickops status, find the last '${svc}-deploy-test' run, inspect the ARM template deploy step."
+  fi
+
+  printf '\n' >&2
+  printf '  ✗ FAILED: discover container app for %s\n' "$svc" >&2
+  printf '  Looked for: %s in RG %s of sub %s\n' "$derived" "$common_rg" "$sub" >&2
+  printf '\n' >&2
+  printf '  Reason:  %s\n' "$reason" >&2
+  printf '  Action:  → %s\n' "$action" >&2
+  printf '\n  Override (skip discovery): SVC_APP_NAME_OVERRIDE=<name> SVC_RG_OVERRIDE=<rg>\n\n' >&2
 }
 
 # Parse a single TSV line of "<name>\t<rg>\t<fqdn>" into the public emit format.
