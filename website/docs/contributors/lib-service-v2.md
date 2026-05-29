@@ -43,8 +43,11 @@ Functions that need a value typically try in this order:
 | `derive_containerapp_name <svc>` | Pure derivation — no `az` calls | Echoes `ca-<repo-prefix-lc>-<svc>`. |
 | `discover_containerapp <svc>` | Look up the live container app (override → IAC common RG → subscription-wide) | Echoes 3 lines `name=`/`resource_group=`/`fqdn=`. Dies if none of the strategies hit. |
 | `public_url_for <svc> <env>` | URL when `ENABLE_PUBLIC_ENDPOINT: "true"` | Echoes `<svc>.<IAC_DNS_ZONE_NAME>` or empty when not public. Dies if prereqs not loaded. |
+| `is_first_time_deploy <svc>` | Predicate — true when IaC `<repo>-<svc>-deploy-test` has zero prior succeeded runs | Exit code only (no stdout). Used by `bin/deploy.sh` to pick subsequent vs first-time chain. |
+| `trigger_pipeline <project> <name> [param=value ...]` | Wraps `az pipelines run` against `refs/heads/main` | Echoes the new run id. Dies on az failure. |
+| `watch_run <project> <run-id> [--timeout-min N]` | Polls the run until terminal | Prints dots while in-progress, then a summary line (`succeeded (Xm Ys)` / `failed (...)` / `timed out after Nm`). Exit 0 on success, 1 otherwise. |
 
-Requires `read_service_config` to run before `public_url_for`; requires `read_iac_variables` before `discover_containerapp` and `public_url_for`.
+Requires `read_service_config` to run before `public_url_for`; requires `read_iac_variables` before `discover_containerapp` and `public_url_for`. Test-only env vars for `watch_run`: `NCO_WATCH_INTERVAL` (seconds between polls; 0 = no sleep), `NCO_WATCH_TIMEOUT_MIN` (override timeout).
 
 ---
 

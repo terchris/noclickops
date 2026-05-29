@@ -30,7 +30,7 @@ What works on each, as of v1.5.x:
 | `add-service` | ✓ | Trigger works; auto-merge misses the PR (downstream is async). Use `--no-merge`, then `merge-pr` when the PR appears (~1–2 min). |
 | `info` | ✓ | **v2** — reads `services/<svc>/config.<env>.yaml` + IaC variables via ADO REST, discovers container app via `az containerapp list`. Public services show a `Public URL` line. |
 | `logs`, `shell` | ✓ | Still v1 — fails fast with "Repo-level variables missing". v2 fix in PLAN-D. |
-| `deploy` | ✓ | Fails with "no build definitions matching name `<repo>-<svc>-CD`" (new layout uses `-deploy`). v2 fixes this. |
+| `deploy` | ✓ | **v2** — multi-pipeline orchestration. Detects first-time vs subsequent automatically. First-time chains 4 pipelines (build → deploy → infra-build → deploy-test, ~10 min). Subsequent triggers `<repo>-<svc>-deploy` and exits; `--watch` follows the auto-triggered IaC deploy-test too. |
 | `clean-sample`, `sync-lovable` | ✓ (Next.js sample / Lovable mirror) | Different sample shape; v2 refactor needed. |
 
 ---
@@ -227,13 +227,20 @@ noclickops merge-pr <pr-id>
 
 Squash-completes the PR via `az`, polls until ADO confirms `completed`, then syncs local main and deletes the merged feature branch.
 
-**Trigger a CD pipeline**
+**Trigger a deploy (v2 multi-pipeline orchestration)**
 
 ```bash
+noclickops deploy $SERVICE test
 noclickops deploy $SERVICE test --watch
 ```
 
-Runs the pipeline `<repo>-<service>-CD` with `targetEnvironment=test`. `--watch` polls until completion. Without `--watch`, returns immediately after queueing.
+`deploy` detects whether this is a first-time or subsequent deploy for the service+env, then runs the appropriate chain:
+
+- **Subsequent deploys** (any prior successful IaC `deploy-test`): triggers `<repo>-<svc>-deploy` in the source project and exits. The IaC `deploy-test` fires automatically via resource trigger (~3-6 min). With `--watch`, polls for that IaC run and watches it too.
+
+- **First-time deploys** (no prior successful `deploy-test`): chains all four pipelines in sequence — build → deploy → infra-build → deploy-test (~10 min total). Always watches each step (chain requires it). Fail-fast: if step N fails, steps N+1 onwards don't trigger. On success, prints a summary with the derived container app name + Public URL (for services with `ENABLE_PUBLIC_ENDPOINT=true`).
+
+For first-time **public** services, Front Door custom-domain validation + cert issuance takes an additional ~30-90 min after the pipelines finish. `--watch-live` (separate plan) will poll DNS / HTTPS / cert until HTTPS-200; not yet implemented.
 
 ---
 

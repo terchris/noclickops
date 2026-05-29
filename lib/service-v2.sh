@@ -216,6 +216,136 @@ _v2_lookup_pipeline_id() {
   awk -F'\t' -v n="$name" '$2==n {print $1; exit}' <<< "$data"
 }
 
+# trigger_pipeline <project> <pipeline-name> [param1=value1 ...]
+# Wraps `az pipelines run`. Always targets refs/heads/main (the env is selected
+# via the targetEnvironment parameter, not the source branch). Echoes the new
+# run id on stdout. Dies on failure.
+trigger_pipeline() {
+  local project="${1:-}" pipeline="${2:-}"
+  [ -n "$project" ] && [ -n "$pipeline" ] \
+    || die "trigger_pipeline: usage: trigger_pipeline <project> <pipeline-name> [param=value ...]"
+  shift 2
+
+  local args=( pipelines run
+    --organization "$AZDO_ORG_URL"
+    --project "$project"
+    --name "$pipeline"
+    --branch refs/heads/main
+    --query id -o tsv )
+
+  if [ "$#" -gt 0 ]; then
+    args+=( --parameters )
+    local p
+    for p in "$@"; do
+      args+=( "$p" )
+    done
+  fi
+
+  local id
+  id=$(_nco_az "${args[@]}" 2>/dev/null | head -1)
+  [ -n "$id" ] || die "trigger_pipeline: failed to start pipeline '$pipeline' in project '$project'"
+  printf '%s' "$id"
+}
+
+# watch_run <project> <run-id> [--timeout-min N]
+# Polls `az pipelines runs show` every NCO_WATCH_INTERVAL seconds (default 20)
+# until the run reaches a terminal state. Prints one dot per poll (no newline)
+# when stdout is a tty. Always prints a final summary line:
+#
+#   succeeded (Xm Ys)
+#   failed (Xm Ys)
+#   canceled (Xm Ys)
+#   timed out after Nm
+#
+# Exit 0 on succeeded; exit 1 otherwise.
+#
+# Test-only overrides:
+#   NCO_WATCH_INTERVAL=0       — poll without sleeping (fast tests)
+#   NCO_WATCH_TIMEOUT_MIN=N    — override timeout in tests
+watch_run() {
+  local project="${1:-}" run_id="${2:-}"
+  [ -n "$project" ] && [ -n "$run_id" ] \
+    || die "watch_run: usage: watch_run <project> <run-id> [--timeout-min N]"
+  shift 2
+
+  local timeout_min=30
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      --timeout-min) timeout_min="$2"; shift 2 ;;
+      *) die "watch_run: unknown flag: $1" ;;
+    esac
+  done
+  timeout_min="${NCO_WATCH_TIMEOUT_MIN:-$timeout_min}"
+  local poll_interval="${NCO_WATCH_INTERVAL:-20}"
+  local max_polls=$(( timeout_min * 60 / (poll_interval > 0 ? poll_interval : 1) ))
+  [ "$max_polls" -lt 1 ] && max_polls=1
+
+  local start_ts=$SECONDS
+  local i raw status result
+  for i in $(seq 1 "$max_polls"); do
+    # One az call per poll: emits "<status>\t<result>" on a single TSV line.
+    # `result` is empty until status=completed.
+    raw=$(_nco_az pipelines runs show \
+      --organization "$AZDO_ORG_URL" --project "$project" \
+      --id "$run_id" --query "[status, result]" -o tsv 2>/dev/null | head -1)
+    IFS=$'\t' read -r status result <<< "$raw"
+    if [ "$status" = "completed" ]; then
+      local elapsed=$((SECONDS - start_ts))
+      [ -t 1 ] && printf '\n'
+      printf '%s (%dm %ds)\n' "${result:-unknown}" "$((elapsed / 60))" "$((elapsed % 60))"
+      [ "$result" = "succeeded" ] && return 0 || return 1
+    fi
+    [ -t 1 ] && printf '.'
+    [ "$poll_interval" -gt 0 ] && sleep "$poll_interval"
+  done
+
+  [ -t 1 ] && printf '\n'
+  printf 'timed out after %dm\n' "$timeout_min"
+  return 1
+}
+
+# _v2_pipeline_succeeded_count <project> <pipeline-id>
+# Echoes the number of past runs of <pipeline-id> with result=='succeeded'.
+# Echoes "0" when the pipeline doesn't exist or has never run.
+_v2_pipeline_succeeded_count() {
+  local project="$1" pipeline_id="$2"
+  [ -z "$pipeline_id" ] && { printf '0'; return 0; }
+  local count
+  count=$(_nco_az pipelines runs list \
+    --organization "$AZDO_ORG_URL" --project "$project" \
+    --pipeline-ids "$pipeline_id" \
+    --query "[?result=='succeeded'] | length(@)" \
+    -o tsv 2>/dev/null | head -1)
+  printf '%s' "${count:-0}"
+}
+
+# is_first_time_deploy <svc>
+# Predicate (uses exit code, no stdout): returns 0 if this is a first-time
+# deploy (IaC's <repo>-<svc>-deploy-test pipeline has never succeeded for
+# this svc) and 1 if there's at least one prior success.
+#
+# Requires TARGET_REPO + AZDO_* context (callers usually run discover_pipelines
+# first; this function runs it itself to get the pipeline IDs).
+is_first_time_deploy() {
+  local svc="${1:-}"
+  [ -n "$svc" ] || die "is_first_time_deploy: usage: is_first_time_deploy <svc>"
+
+  local target="${TARGET_REPO:-$(git rev-parse --show-toplevel 2>/dev/null || true)}"
+  [ -n "$target" ] || die "is_first_time_deploy: not inside a git repo"
+  derive_azdo_context "$target"
+
+  local iac_project; iac_project="$(discover_iac_project)"
+  local iac_list iac_deploy_test_id
+  iac_list=$(_nco_az pipelines list \
+    --organization "$AZDO_ORG_URL" --project "$iac_project" \
+    --query "[].[id,name]" -o tsv 2>/dev/null || true)
+  iac_deploy_test_id=$(_v2_lookup_pipeline_id "$iac_list" "${AZDO_REPO}-${svc}-deploy-test")
+
+  local count
+  count=$(_v2_pipeline_succeeded_count "$iac_project" "$iac_deploy_test_id")
+  [ "${count:-0}" -lt 1 ]
+}
+
 # discover_pipelines <svc>
 # Echoes five lines of "<role>=<id>" — empty value when a pipeline doesn't
 # exist in either project.

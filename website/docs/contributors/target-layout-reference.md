@@ -286,6 +286,8 @@ az repos policy list \
 
 ## Deploy: first-time vs subsequent
 
+> Implemented by `bin/deploy.sh` via `lib/service-v2.sh`'s `is_first_time_deploy` + `trigger_pipeline` + `watch_run` helpers — see PLAN-C.
+
 **First-time** for a service (no successful `<repo>-<svc>-deploy-test` runs in IaC ever):
 
 ```text

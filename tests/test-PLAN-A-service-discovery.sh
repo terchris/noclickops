@@ -428,4 +428,168 @@ assert_eq "1" "$rc" "phase4: public_url_for without read_service_config dies"
 
 rm -rf "$src" "$iac"
 
+# --- Phase 1 (PLAN-C): _v2_pipeline_succeeded_count + is_first_time_deploy ---
+
+src=$(make_v2_source_repo "https://dev.azure.com/AcmeCorp/FrontProj/_git/ABC100001-myservice")
+az_fixtures=$(mktemp -d)
+az_stub=$(v2_stub_az_path)
+
+# IaC project lists — defines which deploy-test pipelines exist
+cat > "$az_fixtures/az_pipelines_list_proj_IaC.tsv" <<'EOF'
+2004	ABC100001-myservice-frontend-deploy-test
+2005	ABC100001-myservice-frontend-deploy-prod
+EOF
+
+# Path A: deploy-test has zero successful runs → first-time
+cat > "$az_fixtures/az_pipelines_runs_list_proj_IaC.tsv" <<'EOF'
+0
+EOF
+out=$(bash -c "
+  cd '$src'
+  export NCO_TEST_AZ_FIXTURES='$az_fixtures'
+  export NCO_AZ_OVERRIDE='$az_stub'
+  . '$NCO_ROOT/lib/paths.sh'
+  . '$NCO_ROOT/lib/service-v2.sh'
+  is_first_time_deploy frontend && echo FIRST || echo SUBSEQUENT
+" 2>&1)
+assert_eq "FIRST" "$out" "planC-phase1: zero prior succeeded → first-time"
+
+# Path B: ≥1 prior succeeded → subsequent
+cat > "$az_fixtures/az_pipelines_runs_list_proj_IaC.tsv" <<'EOF'
+3
+EOF
+out=$(bash -c "
+  cd '$src'
+  export NCO_TEST_AZ_FIXTURES='$az_fixtures'
+  export NCO_AZ_OVERRIDE='$az_stub'
+  . '$NCO_ROOT/lib/paths.sh'
+  . '$NCO_ROOT/lib/service-v2.sh'
+  is_first_time_deploy frontend && echo FIRST || echo SUBSEQUENT
+" 2>&1)
+assert_eq "SUBSEQUENT" "$out" "planC-phase1: prior successes → subsequent"
+
+# Path C: deploy-test pipeline doesn't exist in IaC at all → first-time (empty id)
+cat > "$az_fixtures/az_pipelines_list_proj_IaC.tsv" <<'EOF'
+EOF
+out=$(bash -c "
+  cd '$src'
+  export NCO_TEST_AZ_FIXTURES='$az_fixtures'
+  export NCO_AZ_OVERRIDE='$az_stub'
+  . '$NCO_ROOT/lib/paths.sh'
+  . '$NCO_ROOT/lib/service-v2.sh'
+  is_first_time_deploy frontend && echo FIRST || echo SUBSEQUENT
+" 2>&1)
+assert_eq "FIRST" "$out" "planC-phase1: missing deploy-test pipeline → first-time"
+
+# _v2_pipeline_succeeded_count helper directly: empty pipeline id → 0
+out=$(bash -c "
+  cd '$src'
+  export NCO_TEST_AZ_FIXTURES='$az_fixtures'
+  export NCO_AZ_OVERRIDE='$az_stub'
+  . '$NCO_ROOT/lib/paths.sh'
+  . '$NCO_ROOT/lib/service-v2.sh'
+  . '$NCO_ROOT/lib/azdo.sh' && derive_azdo_context '$src'
+  _v2_pipeline_succeeded_count IaC ''
+")
+assert_eq "0" "$out" "planC-phase1: succeeded_count with empty pipeline id returns 0"
+
+rm -rf "$src" "$az_fixtures"
+
+# --- Phase 2 (PLAN-C): trigger_pipeline + watch_run ---
+
+src=$(make_v2_source_repo "https://dev.azure.com/AcmeCorp/FrontProj/_git/ABC100001-myservice")
+az_fixtures=$(mktemp -d)
+az_stub=$(v2_stub_az_path)
+
+# trigger_pipeline: az pipelines run returns a run id
+cat > "$az_fixtures/az_pipelines_run_proj_FrontProj.tsv" <<'EOF'
+4521
+EOF
+out=$(bash -c "
+  cd '$src'
+  export NCO_TEST_AZ_FIXTURES='$az_fixtures'
+  export NCO_AZ_OVERRIDE='$az_stub'
+  . '$NCO_ROOT/lib/paths.sh'
+  . '$NCO_ROOT/lib/service-v2.sh'
+  . '$NCO_ROOT/lib/azdo.sh' && derive_azdo_context '$src'
+  trigger_pipeline FrontProj ABC100001-myservice-frontend-deploy
+" 2>&1)
+assert_eq "4521" "$out" "planC-phase2: trigger_pipeline echoes the run id"
+
+# trigger_pipeline with parameters: stub returns same id; just verify no error
+out=$(bash -c "
+  cd '$src'
+  export NCO_TEST_AZ_FIXTURES='$az_fixtures'
+  export NCO_AZ_OVERRIDE='$az_stub'
+  . '$NCO_ROOT/lib/paths.sh'
+  . '$NCO_ROOT/lib/service-v2.sh'
+  . '$NCO_ROOT/lib/azdo.sh' && derive_azdo_context '$src'
+  trigger_pipeline FrontProj ABC100001-myservice-frontend-deploy targetEnvironment=test
+" 2>&1)
+assert_eq "4521" "$out" "planC-phase2: trigger_pipeline with parameters"
+
+# trigger_pipeline empty id from az → die
+rm -f "$az_fixtures/az_pipelines_run_proj_FrontProj.tsv"
+out=$(bash -c "
+  cd '$src'
+  export NCO_TEST_AZ_FIXTURES='$az_fixtures'
+  export NCO_AZ_OVERRIDE='$az_stub'
+  . '$NCO_ROOT/lib/paths.sh'
+  . '$NCO_ROOT/lib/service-v2.sh'
+  . '$NCO_ROOT/lib/azdo.sh' && derive_azdo_context '$src'
+  trigger_pipeline FrontProj ABC100001-myservice-frontend-deploy
+" 2>&1) && rc=0 || rc=$?
+assert_eq "1" "$rc"                              "planC-phase2: trigger_pipeline dies on az failure"
+assert_contains "$out" "failed to start pipeline" "planC-phase2: trigger_pipeline error message"
+
+# watch_run happy path: stub returns "completed\tsucceeded"
+printf 'completed\tsucceeded\n' > "$az_fixtures/az_pipelines_runs_show_proj_IaC.tsv"
+out=$(bash -c "
+  cd '$src'
+  export NCO_TEST_AZ_FIXTURES='$az_fixtures'
+  export NCO_AZ_OVERRIDE='$az_stub'
+  export NCO_WATCH_INTERVAL=0
+  export NCO_WATCH_TIMEOUT_MIN=1
+  . '$NCO_ROOT/lib/paths.sh'
+  . '$NCO_ROOT/lib/service-v2.sh'
+  . '$NCO_ROOT/lib/azdo.sh' && derive_azdo_context '$src'
+  watch_run IaC 8932
+" 2>&1) && rc=0 || rc=$?
+assert_eq "0" "$rc"                       "planC-phase2: watch_run succeeded → exit 0"
+assert_contains "$out" "succeeded"        "planC-phase2: watch_run prints 'succeeded' summary"
+
+# watch_run failure path
+printf 'completed\tfailed\n' > "$az_fixtures/az_pipelines_runs_show_proj_IaC.tsv"
+out=$(bash -c "
+  cd '$src'
+  export NCO_TEST_AZ_FIXTURES='$az_fixtures'
+  export NCO_AZ_OVERRIDE='$az_stub'
+  export NCO_WATCH_INTERVAL=0
+  export NCO_WATCH_TIMEOUT_MIN=1
+  . '$NCO_ROOT/lib/paths.sh'
+  . '$NCO_ROOT/lib/service-v2.sh'
+  . '$NCO_ROOT/lib/azdo.sh' && derive_azdo_context '$src'
+  watch_run IaC 8932
+" 2>&1) && rc=0 || rc=$?
+assert_eq "1" "$rc"                    "planC-phase2: watch_run failed → exit 1"
+assert_contains "$out" "failed"        "planC-phase2: watch_run prints 'failed' summary"
+
+# watch_run timeout: stub returns "inProgress\t" forever
+printf 'inProgress\t\n' > "$az_fixtures/az_pipelines_runs_show_proj_IaC.tsv"
+out=$(bash -c "
+  cd '$src'
+  export NCO_TEST_AZ_FIXTURES='$az_fixtures'
+  export NCO_AZ_OVERRIDE='$az_stub'
+  export NCO_WATCH_INTERVAL=0
+  export NCO_WATCH_TIMEOUT_MIN=1
+  . '$NCO_ROOT/lib/paths.sh'
+  . '$NCO_ROOT/lib/service-v2.sh'
+  . '$NCO_ROOT/lib/azdo.sh' && derive_azdo_context '$src'
+  watch_run IaC 8932
+" 2>&1) && rc=0 || rc=$?
+assert_eq "1" "$rc"                       "planC-phase2: watch_run timeout → exit 1"
+assert_contains "$out" "timed out"        "planC-phase2: watch_run prints 'timed out'"
+
+rm -rf "$src" "$az_fixtures"
+
 summary
