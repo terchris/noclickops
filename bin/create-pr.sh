@@ -47,10 +47,13 @@ branch="$(git rev-parse --abbrev-ref HEAD)"
 derive_azdo_context "$TARGET_REPO"
 require_az
 
+# Source lib/service-v2.sh for nco_git (ADO-authed via az token).
+. "$(dirname "${BASH_SOURCE[0]}")/../lib/service-v2.sh"
+
 # Push + set upstream if the branch has no tracking ref yet.
 if ! git rev-parse --abbrev-ref --symbolic-full-name '@{u}' >/dev/null 2>&1; then
   log_info "Pushing $branch to origin (setting upstream)..."
-  git push -u origin "$branch"
+  nco_git push -u origin "$branch"
 fi
 
 log_step "Creating PR '$title' ($branch → main) in $AZDO_REPO"
