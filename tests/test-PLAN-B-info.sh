@@ -148,7 +148,7 @@ out=$(cd "$src" && \
 assert_eq "0" "$rc" "phase2: degradation path exits 0"
 assert_contains "$out" "App name (IaC):     abc100001"       "phase2: static section still printed on degradation"
 assert_contains "$out" "Port:               3000"            "phase2: service config still printed on degradation"
-assert_contains "$out" "(live state unavailable"             "phase2: live section prints unavailable message"
+assert_contains "$out" "FAILED: discover container app"     "phase2: live section prints discovery-failure diagnostic"
 assert_contains "$out" "SVC_APP_NAME_OVERRIDE"               "phase2: degradation message names override env var"
 
 rm -rf "$src" "$iac" "$az_fixtures"
