@@ -19,6 +19,16 @@ SCRIPT_EXIT_CODES=(
   "0|PR opened — prints the PR id and URL."
   "1|Not in a git repo, on main branch, missing title, or az/git error."
 )
+SCRIPT_EXAMPLE_OUTPUT=$(cat <<'EOF'
+noclickops create-pr v1.7.0 — 'smoke: minimal Express stub in smk1' (smoke/clean-smk1 → main) in ABC100001-myservice
+
+==> Creating PR 'smoke: minimal Express stub in smk1' (smoke/clean-smk1 → main) in ABC100001-myservice
+✓ Created PR #4842
+  https://dev.azure.com/<org>/.../pullrequest/4842
+
+ℹ Next: noclickops merge-pr 4842
+EOF
+)
 # --- end metadata ---
 
 set -euo pipefail

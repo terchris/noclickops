@@ -34,6 +34,23 @@ SCRIPT_EXIT_CODES=(
   "0|Service scaffolded; both PRs auto-merged (or pipeline succeeded with --no-merge)."
   "1|Pipeline failed, PR-A merge failed, or PR-B didn't appear within the 5 min poll window."
 )
+SCRIPT_EXAMPLE_OUTPUT=$(cat <<'EOF'
+noclickops add-service v1.7.0 — scaffolding 'smk1' (~1-3 min, 4 steps)
+
+  [1/4] Trigger add-service pipeline             (~30-60s)  params: persistent_storage=false  public_endpoint=false
+  [1/4] Trigger add-service pipeline             (~30-60s)  run 28544 … succeeded (0m 43s)
+  [2/4] Wait for PR-A in source repo             (~10-30s)  found #4837 … merged
+  [3/4] Wait for PR-B in IaC/platform-infra      (~10-30s)  found #4838 … merged
+  [4/4] Sync local main                          (~5s)      ok
+
+✓ Done. services/smk1 is on main.
+  Source PR #4837 merged; infrastructure PR #4838 merged.
+
+Next:
+  noclickops clean-sample smk1        # optional — strip the OIDC starter
+  noclickops deploy smk1 test         # first-time deploy (~6-10 min)
+EOF
+)
 # --- end metadata ---
 
 set -euo pipefail

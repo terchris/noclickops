@@ -28,6 +28,18 @@ SCRIPT_EXIT_CODES=(
   "0|Sample stripped — replacements staged in git. Or already minimal."
   "1|Service folder missing, not a v2-layout service, or app/server.js has been modified."
 )
+SCRIPT_EXAMPLE_OUTPUT=$(cat <<'EOF'
+noclickops clean-sample v1.7.0 — strip Express+OIDC sample from services/smk1/app/
+
+==> Replacing the Express+OIDC sample in services/smk1/app/
+ℹ rewrote services/smk1/app/server.js
+ℹ rewrote services/smk1/app/package.json
+
+✓ Done.
+  Kept (engineer-owned): Dockerfile, config.<env>.yaml, .pipelines/, README.md.
+  Next: add your real code in services/smk1/app, then deploy with 'noclickops deploy smk1 test'.
+EOF
+)
 # --- end metadata ---
 
 set -euo pipefail

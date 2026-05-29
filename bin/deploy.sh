@@ -37,6 +37,25 @@ SCRIPT_EXIT_CODES=(
   "0|All pipelines in the chain succeeded (or, for subsequent without --watch, the source project deploy succeeded)."
   "1|Service config missing, pipeline missing (PR-A or PR-B not merged), pipeline failed, or az error."
 )
+SCRIPT_EXAMPLE_OUTPUT=$(cat <<'EOF'
+noclickops deploy v1.7.0 — smk1 → test
+
+==> Deploying 'smk1' → 'test' (FIRST-TIME — full chain, ~10 min)
+  [1/4] <source-project>/<repo>-smk1-build       run 28572 … succeeded (1m 3s)
+  [2/4] <source-project>/<repo>-smk1-deploy      run 28573 … succeeded (0m 42s)
+  [3/4] IaC/<repo>-smk1-infra-build              run 28575 … succeeded (0m 42s)
+  [4/4] IaC/<repo>-smk1-deploy-test (ARM)        run 28576 … succeeded (3m 6s)
+
+Deploy complete.
+  Container app: ca-abc100001-smk1 (rg-test-myteam-frontend-common)
+  (no public endpoint configured for this service)
+
+# Subsequent re-run uses the resource-trigger path:
+==> Deploying 'smk1' → 'test' (subsequent run, resource trigger expected)
+  [1/1] <source-project>/<repo>-smk1-deploy      run 28577 … succeeded (0m 42s)
+✓ Deploy complete.
+EOF
+)
 # --- end metadata ---
 
 set -euo pipefail

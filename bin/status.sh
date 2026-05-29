@@ -28,6 +28,19 @@ SCRIPT_EXIT_CODES=(
   "0|Status or list shown."
   "1|Run id not found, not in target repo, or az error."
 )
+SCRIPT_EXAMPLE_OUTPUT=$(cat <<'EOF'
+noclickops status v1.7.0 — recent runs in ABC100001-myservice
+
+==> Recent runs in ABC100001-myservice (last 20)
+Run ID    Number       Status     Result     Pipeline ID    Pipeline Name                          Queued Time                 Reason
+--------  -----------  ---------  ---------  -------------  -------------------------------------  --------------------------  ------
+28536     20260529.1   completed  succeeded  1134           ABC100001-myservice-frontend-deploy    2026-05-29 15:35:28.107342  manual
+28535     20260529.1   completed  succeeded  1133           ABC100001-myservice-frontend-build     2026-05-29 15:33:48.196282  manual
+28532     20260529.2   completed  succeeded  1125           ABC100001-myservice-add-service        2026-05-29 15:23:06.118409  manual
+
+ℹ Show details with: noclickops status <run-id>
+EOF
+)
 # --- end metadata ---
 
 set -euo pipefail

@@ -95,6 +95,40 @@ _extract_field() {
   printf '%s' "$raw"
 }
 
+# Extract a multi-line heredoc field. Looks for:
+#   SCRIPT_FIELD=$(cat <<'EOF'
+#   ... lines ...
+#   EOF
+#   )
+# Emits the body verbatim, preserving newlines. Returns empty if the field
+# isn't present in heredoc form (single-line values use _extract_field).
+_extract_heredoc_field() {
+  local file="$1" field="$2"
+  # Look for the canonical form: SCRIPT_FIELD=$(cat <<'EOF' ... EOF\n)
+  # POSIX awk (no gawk extensions): use sub() to strip + a fixed EOF marker.
+  awk -v field="$field" '
+    BEGIN { capturing = 0; marker = "" }
+    capturing {
+      if ($0 == marker) { exit }
+      print
+      next
+    }
+    {
+      start_pattern = "^" field "=\\$\\(cat <<'\''"
+      if ($0 ~ start_pattern) {
+        # Extract the marker between single quotes after <<.
+        # Strip everything up to and including the opening quote.
+        line = $0
+        sub(start_pattern, "", line)
+        # Now `line` starts with the marker followed by a closing quote.
+        sub("'\''.*$", "", line)
+        marker = line
+        capturing = 1
+      }
+    }
+  ' "$file" 2>/dev/null
+}
+
 # Extract a bash array field. Emits each element on its own line so callers
 # can iterate via `while read -r line`. Comments and blank lines stripped.
 # Surrounding quotes (single OR double) stripped from each element.
@@ -147,6 +181,7 @@ parse_metadata() {
   parsed_depends_on="$(_extract_field "$file" SCRIPT_DEPENDS_ON)"
   parsed_flags="$(_extract_array_field "$file" SCRIPT_FLAGS)"
   parsed_exit_codes="$(_extract_array_field "$file" SCRIPT_EXIT_CODES)"
+  parsed_example_output="$(_extract_heredoc_field "$file" SCRIPT_EXAMPLE_OUTPUT)"
 }
 
 # Print --help for the given script based on its metadata.
@@ -184,6 +219,14 @@ show_help() {
   fi
 
   printf 'Example:\n  %s\n\n' "$parsed_example"
+
+  if [ -n "${parsed_example_output:-}" ]; then
+    printf 'Example output:\n'
+    while IFS= read -r _line; do
+      printf '  %s\n' "$_line"
+    done <<< "$parsed_example_output"
+    printf '\n'
+  fi
 
   if [ -n "${parsed_auth:-}" ]; then
     printf 'Auth:\n  %s\n\n' "$parsed_auth"
