@@ -165,9 +165,31 @@ Convention: `<repo>-<svc>-infra-build`, `<repo>-<svc>-deploy-{test|prod}` in the
 
 From the failed first-deploy log (run 28537): `rg-test-myteam-abc100001`. Convention: **`rg-<env>-nrx-<repo-prefix-lc>`** (repo-prefix = the part before the first `-` in the repo name, lowercased).
 
-### Container-app naming: still hypothesised as `<svc>`
+### Container-app naming: CONFIRMED
 
-The Front Door routes `<svc>.example.cloud` → `<svc>` backend. A half-broken peer (`v2service.example.cloud` → HTTP 504) demonstrates Front Door IS routing on `<svc>` even when the backend is unreachable, which only makes sense if the backend name matches `<svc>`. Confirming requires Reader on the test sub OR a successful end-to-end deploy that we can `az containerapp list` against — pending the frontend HTTPS-200 milestone.
+Found by `az containerapp list` against peer NRX subscriptions (DEV / TEST / PROD INTEGRATIONS) that the user DOES have Reader on — same naming model as the FrontendPlatform sub:
+
+| Convention | Pattern | Example |
+|---|---|---|
+| Container app name | `ca-<repo-prefix>-<svc>` | `ca-abc100001-frontend` (predicted), `ca-xyz900005-backend` (observed) |
+| Container FQDN (internal) | `<name>.<env-hash>.<region>.azurecontainerapps.io` | `ca-xyz900005-frontend.examplehill-deadbeef12.westeurope.azurecontainerapps.io` |
+| Image (ACR) | `<CONTAINER_REGISTRY_NAME>.azurecr.io/<image-name>:<tag>` | `acrshareduw.azurecr.io/test-frontend-repo:latest` |
+| Public FQDN (Front Door) | `<svc>.<DNS_ZONE_NAME>` | `frontend.example.cloud` |
+
+So our earlier `<svc>` hypothesis was incomplete — Front Door does route on `<svc>` for the hostname, but the **backend container app name carries the repo-prefix too** (`ca-<repo-prefix>-<svc>`). Front Door's routing rule maps `<svc>.example.cloud` → `ca-<repo-prefix>-<svc>` internally.
+
+### Permission boundary for live-state commands
+
+Tested `az containerapp` calls against an accessible peer (`ca-xyz900005-frontend` in DEV INTEGRATIONS):
+
+| Call | Permission needed | Result |
+|---|---|---|
+| `az containerapp show` | Reader on sub | ✓ works — returns name, image, revision, fqdn, replicas, ingress |
+| `az containerapp list` | Reader on sub | ✓ works |
+| `az containerapp logs show` | `Microsoft.App/containerApps/getAuthToken/action` (Container Apps Logs Reader or higher) | ✗ `AuthorizationFailed` even with Reader |
+| `az containerapp exec` (shell) | same as logs | ✗ same |
+
+**Implication for v2**: `info` works for anyone with sub Reader (good — degrades gracefully when even that's missing). `logs` and `shell` need elevated role; v2 should keep v1.5.x's behaviour of failing closed with a clear "ask your admin for Container Apps Logs Reader on subscription `<id>`" message.
 
 ### Deploy mechanism: ARM templates
 
