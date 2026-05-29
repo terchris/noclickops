@@ -11,7 +11,7 @@
 
 **Last Updated**: 2026-05-29
 
-**Investigation**: [INVESTIGATE-plans-and-scaffolding.md](INVESTIGATE-plans-and-scaffolding.md) (this PLAN is the "PLAN-A — Sparse-checkout slim install" entry)
+**Investigation**: [INVESTIGATE-plans-and-scaffolding.md](../backlog/INVESTIGATE-plans-and-scaffolding.md) (this PLAN is the "PLAN-A — Sparse-checkout slim install" entry)
 
 **Prerequisites**: none.
 
