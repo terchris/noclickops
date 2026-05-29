@@ -24,7 +24,7 @@ If `origin` is a GitHub URL instead, ignore this doc and use the **GitHub Operat
 
 ## Prefer the helper scripts
 
-This repo ships thin wrappers in [`website/scripts/`](../../scripts/) (Bash `.sh` + PowerShell `.ps1`) that do the **PR → merge → deploy** flow with the repo's gotchas already baked in (squash-only merges, manual deploy triggers, branch cleanup). **Reach for these before composing raw `az` commands:**
+This doc describes the raw Azure DevOps `az` commands. noclickops itself wraps these in [`bin/`](https://github.com/terchris/noclickops/tree/main/bin) (Bash `.sh` + PowerShell `.ps1`) for the **PR → merge → deploy** flow with the gotchas baked in (squash-only merges, manual deploy triggers, branch cleanup). **Reach for those wrappers before composing raw `az` commands:**
 
 ```bash
 website/scripts/create-pr.sh "<title>"      # PR from current branch → main
@@ -32,7 +32,7 @@ website/scripts/merge-pr.sh  <pr-id>        # squash-complete + sync main + clea
 website/scripts/deploy.sh    <service> [test|prod] [--watch]
 ```
 
-The raw `az` commands below are the reference for what the scripts do and for anything they don't cover. See [`website/scripts/README.md`](../../scripts/README.md).
+The raw `az` commands below are the reference for what those wrappers do and for anything they don't cover. See the [noclickops README](https://github.com/terchris/noclickops/blob/main/README.md) for the command surface.
 
 ---
 
@@ -48,11 +48,11 @@ az extension list --query "[?name=='azure-devops'].version" -o tsv   # empty = e
 ### Installing `az` (cross-platform)
 
 - **macOS** — `brew install azure-cli`
-- **Windows** — `winget install -e --id Microsoft.AzureCLI` (or the MSI from <https://aka.ms/installazurecliwindows>)
+- **Windows** — `winget install -e --id Microsoft.AzureCLI` (or the MSI from [aka.ms/installazurecliwindows](https://aka.ms/installazurecliwindows))
 - **Linux (Debian/Ubuntu)** — `curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash`
 - **Linux (RHEL/Fedora)** — `sudo dnf install azure-cli` (after importing the Microsoft key — see docs)
 
-Other distros and details: <https://learn.microsoft.com/cli/azure/install-azure-cli>.
+Other distros and details: [learn.microsoft.com/cli/azure/install-azure-cli](https://learn.microsoft.com/cli/azure/install-azure-cli).
 
 Then add the DevOps extension and set defaults so you don't repeat `--organization`/`--project` on every command:
 
@@ -157,4 +157,3 @@ az repos show --repository <repo>
 - **PR can't complete** → it's almost always a branch policy (required reviewers, build validation, linked work items, comment resolution). `az repos pr show --id <id>` reveals the policy state. Surface it to the user; don't work around it.
 - **`The chosen merge type is forbidden by policy`** → this repo requires a **squash** merge; the default merge-commit type is blocked. Re-run the complete with `--squash true` (see the complete command above). After a squash merge the feature branch is not an ancestor of `main`, so delete the local branch with `git branch -D` (not `-d`), and align local `main` with `git pull` (or `git reset --hard origin/main` if it diverged).
 - **Stale git auth on shared agents** (`TF401019` / "could not read Password") — clear `http.extraheader` git config. This repo's `add-service.yaml` does exactly this in its pre-cleanup step.
-</content>

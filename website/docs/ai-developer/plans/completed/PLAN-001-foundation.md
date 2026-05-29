@@ -13,8 +13,8 @@
 
 **Investigations**:
 
-- [INVESTIGATE-noclickops.md](INVESTIGATE-noclickops.md) — the v1 design
-- [INVESTIGATE-uis-lessons.md](INVESTIGATE-uis-lessons.md) — `[U1]`–`[U6]` adopted; `lib/` split, metadata with `SCRIPT_CATEGORY`, `AGENTS.md`
+- [INVESTIGATE-noclickops.md](../backlog/INVESTIGATE-noclickops.md) — the v1 design
+- [INVESTIGATE-uis-lessons.md](../backlog/INVESTIGATE-uis-lessons.md) — `[U1]`–`[U6]` adopted; `lib/` split, metadata with `SCRIPT_CATEGORY`, `AGENTS.md`
 
 **Blocks**: PLAN-002 onwards — every later PLAN sources files from `lib/`.
 
@@ -92,7 +92,7 @@ Each file starts with a sourcing guard (`[[ -n "${_NCO_*_LOADED:-}" ]] && return
   - `log_step "<msg>"` (bold; for top-of-phase banners)
 - [ ] 2.2 `lib/utilities.sh` — shared helpers:
   - `die "<msg>"` — print to stderr (using `log_error`), exit 1.
-  - `require_cmd <name>` — `command -v <name> >/dev/null` or die with "<name> not found; install …" hint.
+  - `require_cmd <name>` — `command -v <name> >/dev/null` or die with `<name> not found; install …` hint.
   - `set -euo pipefail` is left to each script (not the lib) — libs only get sourced, they shouldn't change the caller's shell mode.
 - [ ] 2.3 `lib/paths.sh` — define and export at source time:
   - `NOCLICKOPS_DIR` — the install dir (resolved as 3 parents above `lib/paths.sh`: i.e. wherever this lib lives, `noclickops` is that lib's grandparent's parent).

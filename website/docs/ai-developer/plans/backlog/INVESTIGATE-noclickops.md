@@ -227,7 +227,7 @@ After PLAN-010 the suite is feature-complete and ready for first-customer dry-ru
 Every script handles, with explicit messages:
 
 - **Not in a git repo** (the dispatcher) → "noclickops: not in a git repo."
-- **Unknown subcommand** (the dispatcher) → "noclickops: no such command '<cmd>' (try: noclickops)."
+- **Unknown subcommand** (the dispatcher) → `noclickops: no such command '<cmd>' (try: noclickops).`
 - **`az` / `gh` missing or unauthenticated** (commands that need them) → exit naming the missing tool + login command.
 - **Target repo doesn't match expectations** (e.g. `services/<service>/` doesn't exist) → exit naming what's missing.
 - **Subscription read access missing** (`logs` / `shell` / some `info` fields) → fail-closed with the missing permission named.
