@@ -73,7 +73,13 @@ case "$service" in
   */*|*\\*)      die "Service name '$service' must not contain path separators." ;;
   *' '*|*$'\t'*) die "Service name '$service' must not contain whitespace." ;;
 esac
-[ ${#service} -le 50 ] || die "Service name '$service' is too long (max 50 chars)."
+# Azure Container Apps name limit: 32 chars total. The platform template
+# generates 'ca-<env>-<TENANT>-<svc>' (~12 chars prefix), so service names
+# must be ≤ 20 chars to stay inside the limit. The bicep template enforces
+# this at deploy-test (step 4/4 of the chain — ~6 min in), so we pre-check.
+[ ${#service} -le 20 ] || die "Service name '$service' is too long (${#service} chars; max 20).
+The platform template generates a container app name like 'ca-<env>-<TENANT>-<service>'
+which must fit within Azure's 32-char limit."
 
 [ -n "${TARGET_REPO:-}" ] || die "Not inside a git repository. cd into a repo and re-run."
 
@@ -179,12 +185,15 @@ if ! merge_pr_in_project "$pr_b_id" "$iac_project" platform-infrastructure; then
   exit 1
 fi
 
-# Sync local main (skipped in test mode where origin is a stubbed URL).
+# Sync local main using nco_git (auths to ADO via az token).
+# Skipped in test mode where origin is a stubbed URL.
 if [ -z "${NCO_AZ_OVERRIDE:-}" ]; then
   log_step "Syncing local main"
-  git -C "$TARGET_REPO" fetch --prune >/dev/null 2>&1 || true
-  if git -C "$TARGET_REPO" merge --ff-only origin/main >/dev/null 2>&1; then
-    log_success "Local main is in sync with origin/main."
+  if ! nco_git fetch --prune >/dev/null 2>&1; then
+    log_warn "git fetch failed — local main NOT synced. Both PRs are merged on ADO."
+    log_warn "Run 'noclickops update' to refresh credentials, then 'git pull' manually."
+  elif nco_git merge --ff-only origin/main >/dev/null 2>&1; then
+    log_success "Local main synced with origin/main."
   else
     log_warn "Local main can't fast-forward — it has diverged from origin/main."
   fi
