@@ -33,6 +33,7 @@ _NCO_METADATA_LOADED=1
 
 _meta_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 [[ -z "${_NCO_LOGGING_LOADED:-}" ]] && . "$_meta_dir/logging.sh"
+[[ -z "${_NCO_VERSION_LOADED:-}" ]] && . "$_meta_dir/version.sh"
 unset _meta_dir
 
 # Valid categories — kept here so the lister and individual scripts agree.
@@ -124,17 +125,56 @@ parse_metadata() {
 show_help() {
   local file="$1"
   parse_metadata "$file" || return 1
-  cat <<EOF
-${parsed_name} — ${parsed_description}
+  nco_load_version 2>/dev/null || true   # populates $NCO_VERSION; tolerant if version.txt missing
 
-Usage:
-  ${parsed_usage}
+  printf 'noclickops v%s — %s\n\n' "${NCO_VERSION:-unknown}" "${parsed_name}"
+  printf '%s\n\n' "${parsed_description}"
 
-Example:
-  ${parsed_example}
+  # Optional long-form "what this actually does" paragraph.
+  if [ -n "${parsed_details:-}" ]; then
+    printf '%s\n\n' "$parsed_details"
+  fi
 
-Category: ${parsed_category}
-Flags:
-  -h, --help    Show this help and exit.
-EOF
+  # Category badge + Tags inline.
+  printf 'Category: %s\n' "$parsed_category"
+  if [ -n "${parsed_tags:-}" ]; then
+    printf 'Tags: %s\n' "$parsed_tags"
+  fi
+  printf '\n'
+
+  printf 'Usage:\n  %s\n\n' "$parsed_usage"
+
+  # Flags table (sourced from SCRIPT_FLAGS — each script's array includes
+  # -h, --help, so no need to hardcode it here).
+  if [ -n "${parsed_flags:-}" ]; then
+    printf 'Flags:\n'
+    while IFS='|' read -r _flag _flag_desc; do
+      [ -z "$_flag" ] && continue
+      printf '  %-22s %s\n' "$_flag" "$_flag_desc"
+    done <<< "$parsed_flags"
+    printf '\n'
+  fi
+
+  printf 'Example:\n  %s\n\n' "$parsed_example"
+
+  if [ -n "${parsed_auth:-}" ]; then
+    printf 'Auth:\n  %s\n\n' "$parsed_auth"
+  fi
+
+  if [ -n "${parsed_depends_on:-}" ]; then
+    printf 'Depends on:\n  %s\n\n' "$parsed_depends_on"
+  fi
+
+  if [ -n "${parsed_exit_codes:-}" ]; then
+    printf 'Exit codes:\n'
+    while IFS='|' read -r _code _meaning; do
+      [ -z "$_code" ] && continue
+      printf '  %-4s %s\n' "$_code" "$_meaning"
+    done <<< "$parsed_exit_codes"
+    printf '\n'
+  fi
+
+  if [ -n "${parsed_see_also:-}" ]; then
+    printf 'See also:\n  %s\n' "$parsed_see_also"
+  fi
 }
