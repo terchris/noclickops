@@ -237,11 +237,17 @@ Captured 2026-05-29 against the live `ABC100001-myservice` repo. These are the e
 | `update` | ✓ — works |
 | `status` | ✓ — works (listed all 4 recent runs cleanly) |
 | `status <run-id>` | ✓ — works |
-| `add-service <svc>` | Trigger pipeline ✓; auto-merge step finds no PR (downstream async; PR appears ~1–2 min later) |
+| `create-pr` | ✓ — works |
+| `merge-pr <id>` | ✓ — works (merged PR-A #4831) |
+| `add-service <svc>` | Trigger pipeline ✓; PR-A appears ~1–2 min later; **PR-B in `platform-infrastructure` also opens but v1.5.x doesn't know about it** |
 | `info <svc> <env>` | `✗ Repo-level variables missing: <repo>/.pipelines/variables/common.yaml` |
 | `logs <svc> <env>` | Same as `info` |
 | `shell <svc> <env>` | Same as `info` |
 | `deploy <svc> <env>` | `ERROR: There were no build definitions matching name "<repo>-<svc>-CD" in project "<project-id>".` |
+| `clean-sample <svc>` | `✗ services/<svc> doesn't look like the unmodified Next.js sample (missing components/control-panel.js). Refusing to auto-delete...` — **safe refusal** on the new Express-shaped sample; not a regression |
+| `sync-lovable --help` | ✓ — works (full metadata renders); underlying command not exercised (no Lovable repo at hand) |
+
+**All 12 commands exercised against a live new-layout repo.** No crashes; failures are explicit and informative.
 
 Failures are **fast and explicit** — no hangs, no cryptic errors. v1.5.x against the new layout is safe to attempt; the user just gets a clear "doesn't apply here" signal.
 
@@ -272,17 +278,17 @@ Failures are **fast and explicit** — no hangs, no cryptic errors. v1.5.x again
 
 Centralises discovery for the new layout. Single source of truth used by every downstream command.
 
-- `read_service_config <svc> <env>` → reads `services/<svc>/config.<env>.yaml` into `parsed_*` globals.
-- `discover_subscription <env>` → lists ARM service connections in FrontendPlatform, filters by `<prefix>-<env>-sp` pattern, parses scope.
-- `discover_iac_project` → typically `IaC` — first checks if a project name matching `IaC` / `Infrastructure` / `Platform` exists; accepts `NOCLICKOPS_IAC_PROJECT` env override.
+- `read_service_config <svc> <env>` → reads `services/<svc>/config.<env>.yaml` (in the source repo) into `parsed_*` globals.
+- **`read_iac_variables <env>`** → reads `common.yaml` + `<env>.yaml` from `IaC/platform-infrastructure/environments/<TEAM>/<repo>/infrastructure/.pipelines/variables/`. Same field names as FRT (`SUBSCRIPTION_ID`, `APP_NAME`, `COMMON_RESOURCE_GROUP_NAME`, `CONTAINER_APPS_MANAGED_IDENTITY_NAME`, `DNS_ZONE_NAME`, etc.). **This is the structural FRT-equivalent in the new layout** — small refactor, not a re-architecture.
+- `discover_iac_project` → typically `IaC` — accepts `NOCLICKOPS_IAC_PROJECT` env override; in practice `read_iac_variables` reads `IAC_PROJECT` from `common.yaml` so it self-discovers.
 - `discover_pipelines <svc>` → returns a struct with: `frontend_build`, `frontend_deploy`, `iac_infra_build`, `iac_deploy_test`, `iac_deploy_prod` pipeline ids. Empty fields when not found.
-- `discover_containerapp <svc>` → best-effort `az containerapp list -n <svc>`; accepts `--app-name` override.
-- `discover_rg <env> <repo>` → returns `rg-<env>-nrx-<repo-prefix-lc>` (no Azure call needed; pure derivation).
-- `public_url_for <svc> <env>` → reads `ENABLE_PUBLIC_ENDPOINT` from `config.<env>.yaml`; returns `<svc>.example.cloud` or empty.
+- `discover_containerapp <svc>` → best-effort `az containerapp list -g <COMMON_RG-from-iac-vars>` with `<svc>` filter; accepts `--app-name` override.
+- `derive_rg <env> <repo>` → `rg-<env>-nrx-<repo-prefix-lc>` (pure derivation; cross-check against `COMMON_RESOURCE_GROUP_NAME` from iac vars — they may diverge for shared vs per-service RGs).
+- `public_url_for <svc> <env>` → if `ENABLE_PUBLIC_ENDPOINT: "true"` in `config.<env>.yaml`, returns `<svc>.<DNS_ZONE_NAME>` (where `DNS_ZONE_NAME` comes from iac vars — `example.cloud` in test).
 
 ### PLAN-B — `info` rewrite
 
-Static section from `read_service_config`. Live container-app state via `discover_containerapp` + `discover_rg`; degrades with a clear "pass `--app-name <name>` to specify backend" message if best-effort discovery comes up empty.
+Smaller refactor than the original sketch — most fields v1.5.x's `info` already shows come from the same variable names; just sourced from `read_iac_variables` instead of the source repo's `.pipelines/variables/`. The new service-level `read_service_config` adds the per-service overrides (SERVICE_PORT, SERVICE_CPU, etc.). Live container-app state via `discover_containerapp` + the RG from iac vars; degrades with a clear "pass `--app-name <name>` to specify backend" message if best-effort discovery comes up empty.
 
 ### PLAN-C — `deploy` rewrite (multi-pipeline orchestration)
 
@@ -295,7 +301,7 @@ Detection: query IaC for `<repo>-<svc>-deploy-test` runs; if none succeeded → 
 
 ### PLAN-D — `logs` / `shell` rewrite
 
-Same `discover_containerapp` + `discover_rg` as info's live section. Gating: fail with `--app-name` / `--resource-group` override message if discovery comes up empty.
+Same `discover_containerapp` + RG-from-iac-vars as info's live section. Gating: fail with `--app-name` / `--resource-group` override message if discovery comes up empty. With the iac-vars-reader in place, refactor is small.
 
 ### PLAN-E — `clean-sample` for the new sample shape
 
@@ -327,7 +333,7 @@ The `--watch-live` flag for first-time public-endpoint deploys is filed separate
 
 3. **Cross-project orchestration auth surface.** v2 commands need read access on FrontendPlatform AND read/write on IaC (specifically platform-infrastructure for PR-B merging). Some developers may have one but not the other. Each `az pipelines run` and `az repos pr update` in IaC could fail with 403. v2 must produce clear error messages naming the missing project + permission.
 
-4. **Branch policies on `platform-infrastructure` could harden later.** Today policies are empty — self-approval works. If the Azure engineer adds a required-reviewer policy, v2's auto-merge of PR-B breaks. Mitigation: try auto-merge; on policy-block, fall back to printing the PR URL and instructions ("PR-B needs review at <url>; merge it, then re-run `noclickops deploy <svc> test`").
+4. **Branch policies on `platform-infrastructure` could harden later.** Today policies are empty — self-approval works. If the Azure engineer adds a required-reviewer policy, v2's auto-merge of PR-B breaks. Mitigation: try auto-merge; on policy-block, fall back to printing the PR URL and instructions (`PR-B needs review at <url>; merge it, then re-run noclickops deploy <svc> test`).
 
 5. **First-deploy resource-trigger quirk.** A freshly-registered IaC `deploy-test` pipeline doesn't auto-fire from FrontendPlatform's `-deploy` until it has run once manually. v2's first-time path triggers it explicitly; subsequent deploys rely on the trigger. If the trigger ever breaks (e.g. Azure engineer changes the YAML), `deploy` should detect "FrontendPlatform deploy succeeded but no IaC deploy fired within 60s" and fall back to manual triggering.
 
