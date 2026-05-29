@@ -58,12 +58,15 @@ nco_command_header() {
   local summary="${1:-}"
   nco_load_version 2>/dev/null || true
   local ver="${NCO_VERSION:-?.?.?}"
+  # Put the color escapes in the format string so printf interprets the
+  # '\033' sequences (passing them as %s arguments would print them literally).
+  # Single trailing newline so callers can add their own without doubling.
   if [ -n "$summary" ]; then
-    printf '\n%snoclickops %s v%s%s — %s\n\n' \
-      "${_NCO_BOLD:-}" "${SCRIPT_NAME:-?}" "$ver" "${_NCO_NC:-}" "$summary"
+    printf "\n${_NCO_BOLD:-}noclickops %s v%s${_NCO_NC:-} — %s\n" \
+      "${SCRIPT_NAME:-?}" "$ver" "$summary"
   else
-    printf '\n%snoclickops %s v%s%s\n\n' \
-      "${_NCO_BOLD:-}" "${SCRIPT_NAME:-?}" "$ver" "${_NCO_NC:-}"
+    printf "\n${_NCO_BOLD:-}noclickops %s v%s${_NCO_NC:-}\n" \
+      "${SCRIPT_NAME:-?}" "$ver"
   fi
 }
 
