@@ -5,7 +5,9 @@
 > - [WORKFLOW.md](../../WORKFLOW.md)
 > - [PLANS.md](../../PLANS.md)
 
-## Status: Active — local artifacts shipped (Phase 1); DNS / Pages settings / smoke-test deploy (Phases 2–4) pending user-action. Move to completed/ once the workflow run from `feat/v1.4.0-docusaurus` lights up the site.
+## Status: Completed 2026-05-29
+
+Site live at [`https://noclickops.sovereignsky.no/`](https://noclickops.sovereignsky.no/).
 
 **Goal**: Push every commit to `main` of the `website/` site to `https://noclickops.sovereignsky.no` via a GitHub Pages deploy. Adds the CI workflow, the `CNAME`, a placeholder favicon, and the one-time repo-settings smoke-test sequence. No new content — this PLAN is plumbing only.
 
@@ -323,3 +325,34 @@ The site at `https://noclickops.sovereignsky.no/` (or `terchris.github.io/noclic
 - `website/docs/ai-developer/plans/backlog/PLAN-104-website-deploy.md` → `plans/completed/PLAN-104-website-deploy.md`. Rewrite any `[link](PLAN-103-website-foundation.md)`-style self-references to `../completed/...` (PLAN-103 sits in the same `completed/` folder) and `[link](INVESTIGATE-docusaurus.md)` to `../backlog/INVESTIGATE-docusaurus.md` (the INVESTIGATE stays in backlog until PLAN-105).
 
 **No modifications** to existing files — this PLAN is purely additive on the GitHub-side and static-asset side.
+
+---
+
+## Completion notes (2026-05-29)
+
+Site lit up at [`https://noclickops.sovereignsky.no/`](https://noclickops.sovereignsky.no/). Five gotchas hit during the deploy bring-up that the PLAN as drafted didn't anticipate — recorded here so the next site bring-up (a fork, a new sister project) doesn't re-discover them:
+
+1. **`workflow_dispatch` can't trigger workflows that don't exist on the default branch.** Hit immediately when trying to dispatch from `feat/v1.4.0-docusaurus` — `gh workflow run` returned 404. **Workaround**: added the feature branch to `on.push.branches` temporarily (commit `2d108c8`). Removal task lives in PLAN-105's cleanup.
+2. **The `github-pages` environment has branch-protection rules** that default to "protected branches only" (i.e. main). First deploy failed with `Branch "feat/v1.4.0-docusaurus" is not allowed to deploy to github-pages due to environment protection rules.` **Workaround**: added a custom branch policy via `gh api -X POST repos/{owner}/{repo}/environments/github-pages/deployment-branch-policies -f name=feat/v1.4.0-docusaurus`. Removal task: PLAN-105 cleanup.
+3. **The CNAME file in `static/` does NOT auto-register the custom domain when `build_type: workflow`.** Verified the file landed in the build artifact, but `gh api repos/.../pages` still showed `cname: null` after deploy. **Workaround**: explicitly registered via `gh api -X PUT repos/{owner}/{repo}/pages` with a JSON body containing `{"cname": "noclickops.sovereignsky.no"}`. (The same call with `-f cname=…` form returned "certificate does not exist yet" — only the JSON-body form worked for the initial registration.) After this, the cert provisioned automatically.
+4. **HTTPS cert provisioning is async** — initial `https_certificate.state` was `authorization_created`; took a couple of minutes to progress to `approved`. Don't try to set `https_enforced: true` until the state is `approved` or you'll get HTTP 404 from the HTTPS endpoint even though the deploy is fine.
+5. **Switched the favicon from `.ico` to `.svg`** vs the PLAN's [Q-PLAN104-fav-a] recommendation. Reason: no `rsvg-convert` / ImageMagick on the implementer's host, and modern browser support for SVG favicons is universal. Updated `docusaurus.config.ts` accordingly. Functionally equivalent; one fewer image-tool dependency.
+
+**Per-Phase outcome**:
+
+| Phase | Status | Notes |
+|---|---|---|
+| 1 — Workflow + static assets | ✓ | Favicon as SVG (see gotcha 5). |
+| 2 — DNS | ✓ | User added CNAME at the DNS provider before the smoke test. `dig +short` returned all four GitHub Pages IPs. |
+| 3 — GitHub Pages settings | ✓ | Pages didn't exist; created via `gh api -X POST repos/{owner}/{repo}/pages -f build_type=workflow`. |
+| 4 — Smoke test | ✓ | Two failed runs (gotchas 1 + 2), one successful run (`26628658959` after the env-policy fix + rerun). Then domain register (gotcha 3) + HTTPS bootstrap (gotcha 4). |
+| 5 — Commit on branch | ✓ | Three commits on `feat/v1.4.0-docusaurus`: `c618b19` (PLAN-104 local artifacts), `2d108c8` (temporary feat-branch trigger), `<this commit>` (move to completed/ + completion notes). |
+
+**Branch state**: `feat/v1.4.0-docusaurus` ahead of `main` by 5 commits (2 from PLAN-103 + 3 from PLAN-104). No PR yet — waits for PLAN-105.
+
+**Cleanup tasks deferred to PLAN-105 (final step before opening the PR):**
+
+- Remove `feat/v1.4.0-docusaurus` from `on.push.branches` in `.github/workflows/deploy-docs.yml`.
+- Remove the custom branch policy: `gh api -X DELETE repos/{owner}/{repo}/environments/github-pages/deployment-branch-policies/50617191`.
+
+These don't *break* the deploy if left in — they just leave dead config that future contributors would scratch their heads over.
