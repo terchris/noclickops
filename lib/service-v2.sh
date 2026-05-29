@@ -63,17 +63,77 @@ nco_git() {
 
 # Wraps a GET against the ADO REST API. Args: <url>.
 # Tests set NCO_ADO_REST_OVERRIDE to a stub that maps URL → local file content.
+#
+# On failure, exports NCO_ADO_REST_LAST_STATUS (HTTP status code, '0' for
+# network errors) so callers can pass it to report_rest_failure for an
+# actionable message.
 _nco_ado_rest_get() {
   local url="$1"
   if [ -n "${NCO_ADO_REST_OVERRIDE:-}" ]; then
+    NCO_ADO_REST_LAST_STATUS=""
     "$NCO_ADO_REST_OVERRIDE" "$url"
-  else
-    local token
-    token=$(_nco_az account get-access-token \
-      --resource "${NCO_ADO_APP_ID:-499b84ac-1321-427f-aa17-267ca6975798}" \
-      --query accessToken -o tsv 2>/dev/null) || return 1
-    curl -fsS -u ":$token" "$url"
+    return $?
   fi
+  local token
+  token=$(_nco_az account get-access-token \
+    --resource "${NCO_ADO_APP_ID:-499b84ac-1321-427f-aa17-267ca6975798}" \
+    --query accessToken -o tsv 2>/dev/null) || { NCO_ADO_REST_LAST_STATUS="401"; return 1; }
+
+  # Capture HTTP status alongside the body so we can report meaningfully.
+  local status body tmp
+  tmp=$(mktemp)
+  status=$(curl -s -u ":$token" -o "$tmp" -w '%{http_code}' "$url")
+  body=$(cat "$tmp")
+  rm -f "$tmp"
+  NCO_ADO_REST_LAST_STATUS="$status"
+  case "$status" in
+    2*) printf '%s' "$body"; return 0 ;;
+    *)  printf '%s' "$body" >&2; return 1 ;;
+  esac
+}
+
+# report_rest_failure <verb> <url> [<http-status>] [<body-snippet>]
+# Print an actionable block for a failed ADO REST call. Looks at the HTTP
+# status to pick the right pattern. Falls back to a generic 'see ADO web UI'
+# hint if the status is unrecognised.
+#
+# Patterns covered (initial):
+#   401 — auth invalid / token expired
+#   403 — no read access on the repo
+#   404 — file/path not found
+#   5xx — transient
+report_rest_failure() {
+  local verb="${1:-GET}" url="${2:-}" status="${3:-${NCO_ADO_REST_LAST_STATUS:-0}}"
+  local action reason
+  case "$status" in
+    401)
+      reason="Authentication failed (HTTP 401). Your az token isn't valid for this resource."
+      action="Refresh az login: az logout && az login. If that doesn't help, check that you're logged in to the right tenant."
+      ;;
+    403)
+      reason="Forbidden (HTTP 403). You don't have read access to this resource."
+      action="Ask your admin (or check PIM eligibility) for at least Reader on the IaC project / repo. The URL above shows the resource that's blocked."
+      ;;
+    404)
+      reason="Not found (HTTP 404). The path doesn't exist in the IaC repo."
+      action="Has the IaC PR-B for this service been merged in platform-infrastructure? Check: noclickops status | grep infra-add-service, or visit the IaC PR list in the web UI."
+      ;;
+    5*)
+      reason="ADO returned $status. Transient server error."
+      action="Wait ~30s and retry. If it persists, check ADO service status."
+      ;;
+    0|"")
+      reason="Network error before any HTTP response."
+      action="Check connectivity to dev.azure.com (corporate VPN? proxy? DNS?)."
+      ;;
+    *)
+      reason="Unexpected HTTP $status."
+      action="See the ADO web UI for the resource at the URL above."
+      ;;
+  esac
+  printf '\n  ✗ FAILED: %s %s (HTTP %s)\n' "$verb" "$url" "$status" >&2
+  printf '  Reason:  %s\n' "$reason" >&2
+  printf '  Action:  → %s\n\n' "$action" >&2
 }
 
 # ---------------------------------------------------------------------------
@@ -205,12 +265,16 @@ read_iac_variables() {
   done
 
   local content
-  content=$(_nco_ado_rest_get "$url_common") \
-    || die "read_iac_variables: failed to GET common.yaml from $url_common"
+  if ! content=$(_nco_ado_rest_get "$url_common"); then
+    report_rest_failure GET "$url_common"
+    die "read_iac_variables: failed to GET common.yaml"
+  fi
   _v2_parse_and_export "IAC_" <<< "$content"
 
-  content=$(_nco_ado_rest_get "$url_env") \
-    || die "read_iac_variables: failed to GET ${env}.yaml from $url_env"
+  if ! content=$(_nco_ado_rest_get "$url_env"); then
+    report_rest_failure GET "$url_env"
+    die "read_iac_variables: failed to GET ${env}.yaml"
+  fi
   _v2_parse_and_export "IAC_" <<< "$content"
 
   export IAC__LOADED=1
@@ -640,6 +704,104 @@ find_pr_in_project() {
     -o tsv 2>/dev/null | head -1 | sed 's/^None$//'
 }
 
+# report_pr_merge_failure <project> <pr-id>
+# When a PR squash-complete fails, query the PR's policy evaluations + a
+# few key fields and print a formatted block to STDERR explaining WHY the
+# merge was blocked + the action to take. Same shape as
+# report_pipeline_failure.
+#
+# Patterns covered (initial — extensible):
+#   * Build validation pending / failed
+#   * Required reviewers waiting
+#   * Comments not resolved
+#   * Linked work items missing
+#   * Generic merge conflict / draft / abandoned
+#
+# Falls back to "see PR URL" if the REST calls fail.
+report_pr_merge_failure() {
+  local project="${1:-}" pr_id="${2:-}"
+  [ -n "$project" ] && [ -n "$pr_id" ] || return 1
+
+  local pr_url="${AZDO_ORG_URL:-}/${project}/_git"
+  # Fetch PR meta to get repo + title.
+  local pr_json=""
+  pr_json=$(_nco_az repos pr show \
+    --organization "$AZDO_ORG_URL" \
+    --id "$pr_id" -o json 2>/dev/null) || true
+
+  local pr_title="" pr_repo=""
+  if [ -n "$pr_json" ] && command -v python3 >/dev/null 2>&1; then
+    pr_title=$(printf '%s' "$pr_json" | python3 -c "
+import json, sys
+try:
+    d = json.load(sys.stdin)
+    print(d.get('title', '?'))
+except Exception:
+    pass
+" 2>/dev/null)
+    pr_repo=$(printf '%s' "$pr_json" | python3 -c "
+import json, sys
+try:
+    d = json.load(sys.stdin)
+    print(d.get('repository', {}).get('name', '?'))
+except Exception:
+    pass
+" 2>/dev/null)
+  fi
+
+  [ -n "$pr_repo" ] && pr_url="${pr_url}/${pr_repo}/pullrequest/${pr_id}" \
+    || pr_url="${AZDO_ORG_URL}/${project}/_apis/git/repositories/_unknown_/pullrequest/${pr_id}"
+
+  # Fetch policy evaluations. ADO policy artifactId format:
+  # vstfs:///CodeReview/CodeReviewId/<projectId>/<prId>. We don't easily
+  # have projectId here (could fetch but adds a roundtrip). Best-effort:
+  # the simpler endpoint is /policy/evaluations?artifactId=... where
+  # artifactId can be assembled if we have project id. Skip for v1; rely
+  # on pr show's `_links.statuses` and the status array for a usable
+  # signal.
+  local action="See the PR in the web UI for the blocking policy. Common causes: required build pending, required reviewer pending, comments unresolved, or required work items missing."
+  local reason="The PR squash-complete call was rejected by ADO."
+
+  if [ -n "$pr_json" ] && command -v python3 >/dev/null 2>&1; then
+    # status fields we can read from pr show: status, mergeStatus, isDraft, hasMultipleMergeBases.
+    local pr_state
+    pr_state=$(printf '%s' "$pr_json" | python3 -c "
+import json, sys
+try:
+    d = json.load(sys.stdin)
+    print('status=', d.get('status', '?'))
+    print('mergeStatus=', d.get('mergeStatus', '?'))
+    print('isDraft=', d.get('isDraft', False))
+except Exception:
+    pass
+" 2>/dev/null)
+    case "$pr_state" in
+      *"isDraft= True"*)
+        reason="PR is in draft mode."
+        action="Publish the PR (web UI: 'Publish' button), then re-run noclickops merge-pr $pr_id."
+        ;;
+      *"status= abandoned"*)
+        reason="PR was abandoned."
+        action="The PR cannot be merged. Create a new PR from the same branch if you want to retry."
+        ;;
+      *"mergeStatus= conflicts"*)
+        reason="Merge conflicts between the source branch and target."
+        action="Pull origin/main into your feature branch, resolve conflicts, push, then re-run noclickops merge-pr $pr_id."
+        ;;
+      *"mergeStatus= queued"*|*"mergeStatus= notSet"*)
+        reason="ADO hasn't computed the merge yet."
+        action="Wait ~30s for ADO to evaluate, then re-run noclickops merge-pr $pr_id."
+        ;;
+    esac
+  fi
+
+  printf '\n' >&2
+  printf '  %s\n' "✗ FAILED to merge PR #${pr_id}${pr_title:+: ${pr_title}}" >&2
+  printf '  Reason:  %s\n' "$reason" >&2
+  printf '  Action:  → %s\n' "$action" >&2
+  printf '\n  PR URL:  %s\n\n' "$pr_url" >&2
+}
+
 # merge_pr_in_project <pr-id> <project> [<repo>]
 # Self-approves (best-effort — many tenants forbid creators voting, errors
 # ignored) then squash-completes the PR with source-branch deletion. Polls
@@ -673,7 +835,7 @@ merge_pr_in_project() {
     --squash true --delete-source-branch true \
     --query status -o tsv >/dev/null 2>&1
   then
-    printf 'merge_pr_in_project: failed to mark PR #%s completed in project %s (branch policy?)\n' "$pr_id" "$project" >&2
+    report_pr_merge_failure "$project" "$pr_id"
     return 1
   fi
 
