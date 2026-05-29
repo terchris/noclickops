@@ -4,10 +4,6 @@ on:
   push:
     branches:
       - main
-      # Temporary: lets PLAN-104/105 smoke-test the deploy from the feature
-      # branch before merge. Remove this line when feat/v1.4.0-docusaurus
-      # merges into main (PLAN-105 cleanup task).
-      - feat/v1.4.0-docusaurus
   workflow_dispatch:
 
 permissions:
@@ -36,6 +32,12 @@ jobs:
       - name: Install dependencies
         working-directory: website
         run: npm ci
+
+      - name: Generate docs (commands.mdx, index.md, JSON data)
+        env:
+          GITHUB_ORG: ${{ github.repository_owner }}
+          GITHUB_REPO: ${{ github.event.repository.name }}
+        run: bash scripts/generate-docs.sh
 
       - name: Build website
         working-directory: website

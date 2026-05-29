@@ -81,17 +81,31 @@ The shell function from [Q60] in the investigation routes by `pwd`'s git root �
 The site under `website/` is a Docusaurus app. Local dev:
 
 ```bash
+bash scripts/generate-docs.sh    # regenerate docs/commands.mdx, docs/index.md, src/data/*.json
 cd website
-npm install            # first time only
-npm start              # http://localhost:3000 with hot reload
-npm run build          # production build (catches broken links)
+npm install                      # first time only
+npm start                        # http://localhost:3000 with hot reload
+npm run build                    # production build (catches broken links)
 ```
 
 Requires **Node 20+**. The build runs with `onBrokenLinks: 'throw'`, so any broken intra-docs link fails CI. Mermaid + local search are enabled.
 
 A dev-mode warning from the search plugin (`⚠ Local search will not work in dev mode`) is normal — the search index is built at `npm run build` time. To test search locally, run `npm run build` then `npm run serve`.
 
-The marketing homepage at `/` and the generated `/docs/commands` page are delivered by PLAN-105; the GitHub Pages deploy is delivered by PLAN-104. v1 of the site (PLAN-103) ships a placeholder homepage and a stub `/docs/` index — both are intentional, both get replaced.
+### `scripts/generate-docs.sh`
+
+Bash generator (~250 lines). Sources `lib/metadata.sh`, walks `bin/*.sh`, and emits four files (all gitignored — never commit the outputs):
+
+| File | Purpose |
+|---|---|
+| `website/docs/commands.mdx` | Per-command reference page (`/docs/commands`) — H2 per category, H3 per command, collapsible `--help`. |
+| `website/docs/index.md` | Docs root (`/docs/`) — `README.md` with frontmatter prepended and repo-root links rewritten to GitHub URLs. |
+| `website/src/data/commands.json` | Consumed by React components. One row per command. |
+| `website/src/data/categories.json` | Consumed by `<CommandCategoryGrid>`. One row per category. |
+
+CI runs the generator before `npm run build` (see `.github/workflows/deploy-docs.yml`). Locally: re-run the script whenever you edit `README.md`, add a script to `bin/`, or change a script's `SCRIPT_*` metadata block. If you forget, Docusaurus errors with "Module not found: `src/data/commands.json`" — recover by running the generator.
+
+The generator is Bash-only (no `.ps1` sibling) — it's internal repo tooling, not target-repo-facing. The portability guard (`tests/test-portability.sh`) only scans `bin|lib|templates|shell`, so `scripts/` is intentionally outside that surface.
 
 ---
 
