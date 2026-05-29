@@ -592,4 +592,101 @@ assert_contains "$out" "timed out"        "planC-phase2: watch_run prints 'timed
 
 rm -rf "$src" "$az_fixtures"
 
+# --- Phase 1 (PLAN-F): find_pr_in_project + merge_pr_in_project ---
+
+src=$(make_v2_source_repo "https://dev.azure.com/AcmeCorp/FrontProj/_git/ABC100001-myservice")
+az_fixtures=$(mktemp -d)
+az_stub=$(v2_stub_az_path)
+
+# find_pr_in_project happy path
+cat > "$az_fixtures/az_repos_pr_list_proj_IaC.tsv" <<'EOF'
+4832
+EOF
+out=$(bash -c "
+  cd '$src'
+  export NCO_TEST_AZ_FIXTURES='$az_fixtures'
+  export NCO_AZ_OVERRIDE='$az_stub'
+  . '$NCO_ROOT/lib/paths.sh'
+  . '$NCO_ROOT/lib/service-v2.sh'
+  . '$NCO_ROOT/lib/azdo.sh' && derive_azdo_context '$src'
+  find_pr_in_project IaC platform-infrastructure add-service-frontend
+" 2>&1)
+assert_eq "4832" "$out" "planF-phase1: find_pr_in_project echoes PR id"
+
+# find_pr_in_project no match → empty
+cat > "$az_fixtures/az_repos_pr_list_proj_IaC.tsv" </dev/null
+out=$(bash -c "
+  cd '$src'
+  export NCO_TEST_AZ_FIXTURES='$az_fixtures'
+  export NCO_AZ_OVERRIDE='$az_stub'
+  . '$NCO_ROOT/lib/paths.sh'
+  . '$NCO_ROOT/lib/service-v2.sh'
+  . '$NCO_ROOT/lib/azdo.sh' && derive_azdo_context '$src'
+  find_pr_in_project IaC platform-infrastructure add-service-missing
+" 2>&1)
+assert_eq "" "$out" "planF-phase1: find_pr_in_project no match → empty"
+
+# find_pr_in_project: 'None' result (az's null serialization) → empty
+printf 'None\n' > "$az_fixtures/az_repos_pr_list_proj_IaC.tsv"
+out=$(bash -c "
+  cd '$src'
+  export NCO_TEST_AZ_FIXTURES='$az_fixtures'
+  export NCO_AZ_OVERRIDE='$az_stub'
+  . '$NCO_ROOT/lib/paths.sh'
+  . '$NCO_ROOT/lib/service-v2.sh'
+  . '$NCO_ROOT/lib/azdo.sh' && derive_azdo_context '$src'
+  find_pr_in_project IaC platform-infrastructure add-service-missing
+" 2>&1)
+assert_eq "" "$out" "planF-phase1: find_pr_in_project 'None' → empty"
+
+# merge_pr_in_project happy path: set-vote ok, pr update ok, pr show=completed
+# All three subcommands key as 'repos_pr_<verb>_proj_IaC'.
+printf '' > "$az_fixtures/az_repos_pr_set-vote_proj_IaC.tsv"
+printf 'completed\n' > "$az_fixtures/az_repos_pr_update_proj_IaC.tsv"
+printf 'completed\n' > "$az_fixtures/az_repos_pr_show_proj_IaC.tsv"
+out=$(bash -c "
+  cd '$src'
+  export NCO_TEST_AZ_FIXTURES='$az_fixtures'
+  export NCO_AZ_OVERRIDE='$az_stub'
+  export NCO_WATCH_INTERVAL=0
+  . '$NCO_ROOT/lib/paths.sh'
+  . '$NCO_ROOT/lib/service-v2.sh'
+  . '$NCO_ROOT/lib/azdo.sh' && derive_azdo_context '$src'
+  merge_pr_in_project 4832 IaC platform-infrastructure
+" 2>&1) && rc=0 || rc=$?
+assert_eq "0" "$rc"                       "planF-phase1: merge_pr_in_project happy path exit 0"
+assert_contains "$out" "PR #4832 completed" "planF-phase1: merge_pr_in_project prints success line"
+
+# merge_pr_in_project abandoned → exit 1
+printf 'abandoned\n' > "$az_fixtures/az_repos_pr_show_proj_IaC.tsv"
+out=$(bash -c "
+  cd '$src'
+  export NCO_TEST_AZ_FIXTURES='$az_fixtures'
+  export NCO_AZ_OVERRIDE='$az_stub'
+  export NCO_WATCH_INTERVAL=0
+  . '$NCO_ROOT/lib/paths.sh'
+  . '$NCO_ROOT/lib/service-v2.sh'
+  . '$NCO_ROOT/lib/azdo.sh' && derive_azdo_context '$src'
+  merge_pr_in_project 4832 IaC platform-infrastructure
+" 2>&1) && rc=0 || rc=$?
+assert_eq "1" "$rc"                          "planF-phase1: merge_pr_in_project abandoned → exit 1"
+assert_contains "$out" "abandoned"           "planF-phase1: merge_pr_in_project prints abandoned message"
+
+# merge_pr_in_project pr update failure → exit 1
+rm -f "$az_fixtures/az_repos_pr_update_proj_IaC.tsv"
+out=$(bash -c "
+  cd '$src'
+  export NCO_TEST_AZ_FIXTURES='$az_fixtures'
+  export NCO_AZ_OVERRIDE='$az_stub'
+  export NCO_WATCH_INTERVAL=0
+  . '$NCO_ROOT/lib/paths.sh'
+  . '$NCO_ROOT/lib/service-v2.sh'
+  . '$NCO_ROOT/lib/azdo.sh' && derive_azdo_context '$src'
+  merge_pr_in_project 4832 IaC platform-infrastructure
+" 2>&1) && rc=0 || rc=$?
+assert_eq "1" "$rc"                                          "planF-phase1: merge_pr_in_project update failure → exit 1"
+assert_contains "$out" "failed to mark PR #4832 completed"   "planF-phase1: merge_pr_in_project prints update-failure message"
+
+rm -rf "$src" "$az_fixtures"
+
 summary

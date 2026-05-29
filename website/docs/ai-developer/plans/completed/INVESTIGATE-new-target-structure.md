@@ -5,7 +5,11 @@
 > - [WORKFLOW.md](../../WORKFLOW.md) — the implementation process
 > - [PLANS.md](../../PLANS.md) — plan structure and best practices
 
-## Status: Backlog — scope locked, ready to draft PLANs
+## Status: Completed — all child plans shipped (PLAN-A through PLAN-F)
+
+**Completed**: 2026-05-29
+
+**Outcomes**: `lib/service-v2.sh` (PLAN-A), `bin/info.sh` (PLAN-B), `bin/deploy.sh` with multi-pipeline orchestration (PLAN-C), `bin/logs.sh` + `bin/shell.sh` (PLAN-D), `bin/clean-sample.sh` (PLAN-E), `bin/add-service.sh` with two-PR auto-merge (PLAN-F). Version bumped to 2.0.0. v1's `lib/service.sh` + `lib/service.ps1` still in the tree pending cleanup (PLAN-G — separate follow-up).
 
 **Goal**: Cut over `noclickops` from the FRT-shaped repo layout (v1.x) to the new layout used by `copier-add-service`-generated repos like `ABC100001-myservice`. v2 supports the new layout only. v1.x stays available for FRT users via the existing tag.
 
@@ -317,7 +321,7 @@ Smaller refactor than the original sketch — most fields v1.5.x's `info` alread
 The big one. Two paths:
 
 - **Subsequent deploys** (IaC's `deploy-test` has succeeded before for this svc/env): just trigger FrontendPlatform's `<repo>-<svc>-deploy`. The resource trigger fires IaC's `deploy-test` automatically. With `--watch`, watches both pipelines.
-- **First-time deploys** (no successful `deploy-test` run yet): explicitly run in sequence — `<repo>-<svc>-build` → `<repo>-<svc>-deploy` → `<repo>-<svc>-infra-build` → `<repo>-<svc>-deploy-test`. With `--watch-live`, additionally polls Front Door / DNS / cert / HTTPS for the additional 30-90 min on first-time public-endpoint services (per [PLAN-watch-live-deploy.md](PLAN-watch-live-deploy.md)).
+- **First-time deploys** (no successful `deploy-test` run yet): explicitly run in sequence — `<repo>-<svc>-build` → `<repo>-<svc>-deploy` → `<repo>-<svc>-infra-build` → `<repo>-<svc>-deploy-test`. With `--watch-live`, additionally polls Front Door / DNS / cert / HTTPS for the additional 30-90 min on first-time public-endpoint services (per [PLAN-watch-live-deploy.md](../backlog/PLAN-watch-live-deploy.md)).
 
 Detection: query IaC for `<repo>-<svc>-deploy-test` runs; if none succeeded → first-time.
 
@@ -343,7 +347,7 @@ v1.5.x merges only PR-A (source repo). v2 waits for **both** PRs:
 
 v1.5.x → **v2.0.0** when PLAN-A through PLAN-F land. Semver major (target-repo contract change). v1 stays available via the `v1.5.x` tag for anyone still on FRT.
 
-The `--watch-live` flag for first-time public-endpoint deploys is filed separately as [PLAN-watch-live-deploy.md](PLAN-watch-live-deploy.md) — ships as part of v2's PLAN-C `--watch-live` flag.
+The `--watch-live` flag for first-time public-endpoint deploys is filed separately as [PLAN-watch-live-deploy.md](../backlog/PLAN-watch-live-deploy.md) — ships as part of v2's PLAN-C `--watch-live` flag.
 
 ---
 

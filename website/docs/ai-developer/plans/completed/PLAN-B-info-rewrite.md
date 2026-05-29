@@ -22,7 +22,7 @@
 - Total tests: 376 → 399 (+23 net after the PLAN-008 trim).
 - Branch stays `feat/v2-new-target-structure`. Per CLAUDE.md PR-per-investigation rule.
 
-**Investigation**: [INVESTIGATE-new-target-structure.md](../backlog/INVESTIGATE-new-target-structure.md) (see § "Per-command impact → info" and § "PLAN sequence → PLAN-B")
+**Investigation**: [INVESTIGATE-new-target-structure.md](INVESTIGATE-new-target-structure.md) (see § "Per-command impact → info" and § "PLAN sequence → PLAN-B")
 
 **Prerequisites**: [PLAN-A](../completed/PLAN-A-service-discovery.md) ships `lib/service-v2.sh`.
 

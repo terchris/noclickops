@@ -18,7 +18,7 @@ If you only want to install and see the surface, stop at step 3. To go further, 
 
 ### Repo layouts: which commands work where
 
-noclickops currently targets the **FRT-shaped** layout (`.pipelines/variables/{common,test,prod}.yaml` at repo root, single `<repo>-<svc>-CD` pipeline per service). A newer layout (per-service `services/<svc>/config.<env>.yaml`, split `<repo>-<svc>-build` + `<repo>-<svc>-deploy` pipelines, Azure Front Door fronting `<svc>.example.cloud`) is the direction for newly-scaffolded repos. Full v2 support for the new layout is in progress — see [INVESTIGATE-new-target-structure](/docs/ai-developer/plans/backlog/INVESTIGATE-new-target-structure).
+noclickops currently targets the **FRT-shaped** layout (`.pipelines/variables/{common,test,prod}.yaml` at repo root, single `<repo>-<svc>-CD` pipeline per service). A newer layout (per-service `services/<svc>/config.<env>.yaml`, split `<repo>-<svc>-build` + `<repo>-<svc>-deploy` pipelines, Azure Front Door fronting `<svc>.example.cloud`) is the direction for newly-scaffolded repos. Full v2 support for the new layout is in progress — see [INVESTIGATE-new-target-structure](/docs/ai-developer/plans/completed/INVESTIGATE-new-target-structure).
 
 What works on each, as of v1.5.x:
 
@@ -27,7 +27,7 @@ What works on each, as of v1.5.x:
 | `noclickops`, `update`, `--help` | ✓ | ✓ |
 | `status` | ✓ | ✓ |
 | `create-pr`, `merge-pr` | ✓ | ✓ |
-| `add-service` | ✓ | Trigger works; auto-merge misses the PR (downstream is async). Use `--no-merge`, then `merge-pr` when the PR appears (~1–2 min). |
+| `add-service` | ✓ | **v2** — auto-merges BOTH PR-A (source repo) and PR-B (`IaC/platform-infrastructure`). v1 silently missed PR-B; first-time deploys then failed with "pipeline not found". v2 closes that gap. `--no-merge` for fire-and-forget. Default flips to internal-only (use `--public-endpoint` to opt in). |
 | `info` | ✓ | **v2** — reads `services/<svc>/config.<env>.yaml` + IaC variables via ADO REST, discovers container app via `az containerapp list`. Public services show a `Public URL` line. |
 | `logs`, `shell` | ✓ | **v2** — discovers container app via `az containerapp list` against the IaC-declared subscription/RG; gates on discovery failure (no degraded mode). Override with `SVC_APP_NAME_OVERRIDE` + `SVC_RG_OVERRIDE`. |
 | `deploy` | ✓ | **v2** — multi-pipeline orchestration. Detects first-time vs subsequent automatically. First-time chains 4 pipelines (build → deploy → infra-build → deploy-test, ~10 min). Subsequent triggers `<repo>-<svc>-deploy` and exits; `--watch` follows the auto-triggered IaC deploy-test too. |

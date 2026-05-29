@@ -46,8 +46,10 @@ Functions that need a value typically try in this order:
 | `is_first_time_deploy <svc>` | Predicate — true when IaC `<repo>-<svc>-deploy-test` has zero prior succeeded runs | Exit code only (no stdout). Used by `bin/deploy.sh` to pick subsequent vs first-time chain. |
 | `trigger_pipeline <project> <name> [param=value ...]` | Wraps `az pipelines run` against `refs/heads/main` | Echoes the new run id. Dies on az failure. |
 | `watch_run <project> <run-id> [--timeout-min N]` | Polls the run until terminal | Prints dots while in-progress, then a summary line (`succeeded (Xm Ys)` / `failed (...)` / `timed out after Nm`). Exit 0 on success, 1 otherwise. |
+| `find_pr_in_project <project> <repo> <source-branch>` | Cross-project PR lookup by source branch | Echoes the PR id or empty. Used by `add-service` to find both PR-A (source repo) and PR-B (IaC). |
+| `merge_pr_in_project <pr-id> <project> [<repo>]` | Self-approve + squash-complete + poll | Echoes summary. Exit 0 on completed, 1 on abandoned / update failure / timeout. Works cross-project (each az call passes explicit `--organization` + `--project`). |
 
-Requires `read_service_config` to run before `public_url_for`; requires `read_iac_variables` before `discover_containerapp` and `public_url_for`. Test-only env vars for `watch_run`: `NCO_WATCH_INTERVAL` (seconds between polls; 0 = no sleep), `NCO_WATCH_TIMEOUT_MIN` (override timeout).
+Requires `read_service_config` to run before `public_url_for`; requires `read_iac_variables` before `discover_containerapp` and `public_url_for`. Test-only env vars: `NCO_WATCH_INTERVAL` (poll interval seconds; 0 = no sleep), `NCO_WATCH_TIMEOUT_MIN` (`watch_run` timeout), `NCO_PR_B_TIMEOUT_MIN` (`add-service` PR-B poll timeout, default 5 min).
 
 ---
 
@@ -130,9 +132,10 @@ What "good" looks like:
 | `bin/deploy.sh` | `read_service_config` + `read_iac_variables` + `discover_pipelines` + `is_first_time_deploy` + `trigger_pipeline` + `watch_run` + `derive_containerapp_name` + `public_url_for` |
 | `bin/logs.sh` | `read_iac_variables` + `discover_containerapp` (gates on failure) |
 | `bin/shell.sh` | `read_iac_variables` + `discover_containerapp` (gates on failure) |
+| `bin/add-service.sh` | `discover_iac_project` + `trigger_pipeline` + `watch_run` + `find_pr_in_project` + `merge_pr_in_project` (two-PR auto-merge) |
 
 ## Related
 
 - [Target layout reference](./target-layout-reference.md) — the empirical layout description this module targets.
-- [INVESTIGATE-new-target-structure](/docs/ai-developer/plans/backlog/INVESTIGATE-new-target-structure) — the v2 redesign that motivated this module.
+- [INVESTIGATE-new-target-structure](/docs/ai-developer/plans/completed/INVESTIGATE-new-target-structure) — the v2 redesign that motivated this module.
 - PLAN-B / PLAN-C / PLAN-D / PLAN-E / PLAN-F — the command rewrites that consume this module's API.

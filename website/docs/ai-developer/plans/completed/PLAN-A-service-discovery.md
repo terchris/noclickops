@@ -22,7 +22,7 @@
 - No customer-tenant tokens (`nrx` etc.) anywhere in `lib/service-v2.sh`.
 - Per CLAUDE.md PR-per-investigation rule, this plan commits to the `feat/v2-new-target-structure` branch. PR opens after PLAN-F merges.
 
-**Investigation**: [INVESTIGATE-new-target-structure.md](../backlog/INVESTIGATE-new-target-structure.md) (see § "PLAN sequence → PLAN-A")
+**Investigation**: [INVESTIGATE-new-target-structure.md](INVESTIGATE-new-target-structure.md) (see § "PLAN sequence → PLAN-A")
 
 **Blocks**: PLAN-B (info), PLAN-C (deploy), PLAN-D (logs/shell), PLAN-E (clean-sample), PLAN-F (add-service). Each consumes the API this plan ships.
 

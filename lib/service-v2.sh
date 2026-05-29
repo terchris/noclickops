@@ -486,6 +486,77 @@ _v2_emit_containerapp() {
 # ENABLE_PUBLIC_ENDPOINT: "true" in its config.<env>.yaml. Empty stdout +
 # exit 0 when the service isn't public. Dies with a clear message if the
 # required readers haven't been called first.
+# find_pr_in_project <project> <repo> <source-branch>
+# Echoes the first active PR id whose source ref is refs/heads/<source-branch>,
+# or empty when none exists. Uses explicit --organization + --project so it
+# works against any project (cross-project — e.g. IaC PR-B).
+find_pr_in_project() {
+  local project="${1:-}" repo="${2:-}" branch="${3:-}"
+  [ -n "$project" ] && [ -n "$repo" ] && [ -n "$branch" ] \
+    || die "find_pr_in_project: usage: find_pr_in_project <project> <repo> <source-branch>"
+
+  _nco_az repos pr list \
+    --organization "$AZDO_ORG_URL" --project "$project" \
+    --repository "$repo" --status active \
+    --query "[?sourceRefName=='refs/heads/${branch}'] | [0].pullRequestId" \
+    -o tsv 2>/dev/null | head -1 | sed 's/^None$//'
+}
+
+# merge_pr_in_project <pr-id> <project> [<repo>]
+# Self-approves (best-effort — many tenants forbid creators voting, errors
+# ignored) then squash-completes the PR with source-branch deletion. Polls
+# until terminal state (completed / abandoned). Always echoes a summary line.
+# Returns 0 on completed, 1 on anything else.
+#
+# Cross-project safe: every az call uses explicit --organization + --project.
+#
+# Test-only env: NCO_WATCH_INTERVAL (poll interval in seconds; 0 = no sleep).
+merge_pr_in_project() {
+  local pr_id="${1:-}" project="${2:-}" repo="${3:-}"
+  [ -n "$pr_id" ] && [ -n "$project" ] \
+    || die "merge_pr_in_project: usage: merge_pr_in_project <pr-id> <project> [<repo>]"
+
+  # Step 1: self-approve. Ignore errors (creator-can't-self-vote tenants).
+  _nco_az repos pr set-vote \
+    --organization "$AZDO_ORG_URL" --project "$project" \
+    --id "$pr_id" --vote approve \
+    >/dev/null 2>&1 || true
+
+  # Step 2: squash-complete.
+  if ! _nco_az repos pr update \
+    --organization "$AZDO_ORG_URL" --project "$project" \
+    --id "$pr_id" --status completed \
+    --squash true --delete-source-branch true \
+    --query status -o tsv >/dev/null 2>&1
+  then
+    printf 'merge_pr_in_project: failed to mark PR #%s completed (branch policy?)\n' "$pr_id" >&2
+    return 1
+  fi
+
+  # Step 3: poll until terminal.
+  local poll_interval="${NCO_WATCH_INTERVAL:-4}"
+  local max_polls=30
+  local i st=""
+  for i in $(seq 1 "$max_polls"); do
+    st=$(_nco_az repos pr show \
+      --organization "$AZDO_ORG_URL" --project "$project" \
+      --id "$pr_id" --query status -o tsv 2>/dev/null | head -1)
+    case "$st" in
+      completed)
+        printf 'PR #%s completed\n' "$pr_id"
+        return 0
+        ;;
+      abandoned)
+        printf 'PR #%s was abandoned\n' "$pr_id" >&2
+        return 1
+        ;;
+    esac
+    [ "$poll_interval" -gt 0 ] && sleep "$poll_interval"
+  done
+  printf 'PR #%s did not complete (last status: %s)\n' "$pr_id" "${st:-unknown}" >&2
+  return 1
+}
+
 public_url_for() {
   local svc="${1:-}" env="${2:-}"
   [ -n "$svc" ] && [ -n "$env" ] \

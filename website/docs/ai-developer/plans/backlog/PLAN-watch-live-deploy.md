@@ -11,7 +11,7 @@
 
 **Last Updated**: 2026-05-29
 
-**Investigation**: [INVESTIGATE-new-target-structure.md](INVESTIGATE-new-target-structure.md) — this PLAN is filed during the empirical-test phase of that investigation; ships as part of v2's deploy command or as a follow-up patch.
+**Investigation**: [INVESTIGATE-new-target-structure.md](../completed/INVESTIGATE-new-target-structure.md) — this PLAN is filed during the empirical-test phase of that investigation; ships as part of v2's deploy command or as a follow-up patch.
 
 **Prerequisites**: v2 deploy command in place (the layout-aware version targeting `<repo>-<svc>-deploy`).
 

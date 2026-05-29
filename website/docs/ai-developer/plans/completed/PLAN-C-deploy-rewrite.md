@@ -24,7 +24,7 @@
 - Total tests: 396 → 435 passing, 0 failed.
 - Branch stays `feat/v2-new-target-structure`. Per CLAUDE.md PR-per-investigation rule.
 
-**Investigation**: [INVESTIGATE-new-target-structure.md](../backlog/INVESTIGATE-new-target-structure.md) (see § "Per-command impact → deploy" and § "PLAN sequence → PLAN-C")
+**Investigation**: [INVESTIGATE-new-target-structure.md](INVESTIGATE-new-target-structure.md) (see § "Per-command impact → deploy" and § "PLAN sequence → PLAN-C")
 
 **Prerequisites**: [PLAN-A](../completed/PLAN-A-service-discovery.md) ships `lib/service-v2.sh` (used for `discover_pipelines`, `read_service_config`, `read_iac_variables`).
 

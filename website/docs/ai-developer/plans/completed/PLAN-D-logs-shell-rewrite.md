@@ -23,7 +23,7 @@
 - Total tests: 435 → 430 (net after the v1 test deletion + PLAN-D test addition).
 - Branch stays `feat/v2-new-target-structure`. Per CLAUDE.md PR-per-investigation rule.
 
-**Investigation**: [INVESTIGATE-new-target-structure.md](../backlog/INVESTIGATE-new-target-structure.md) (see § "Per-command impact → logs / shell" and § "PLAN sequence → PLAN-D")
+**Investigation**: [INVESTIGATE-new-target-structure.md](INVESTIGATE-new-target-structure.md) (see § "Per-command impact → logs / shell" and § "PLAN sequence → PLAN-D")
 
 **Prerequisites**: [PLAN-A](../completed/PLAN-A-service-discovery.md) ships `discover_containerapp` + `read_iac_variables`.
 

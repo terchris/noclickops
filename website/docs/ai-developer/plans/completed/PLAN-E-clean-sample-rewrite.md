@@ -24,7 +24,7 @@
 - Total tests: 430 → 434 passing, 0 failed.
 - Branch stays `feat/v2-new-target-structure`. Per CLAUDE.md PR-per-investigation rule.
 
-**Investigation**: [INVESTIGATE-new-target-structure.md](../backlog/INVESTIGATE-new-target-structure.md) (see § "Per-command impact → clean-sample" and § "PLAN sequence → PLAN-E")
+**Investigation**: [INVESTIGATE-new-target-structure.md](INVESTIGATE-new-target-structure.md) (see § "Per-command impact → clean-sample" and § "PLAN sequence → PLAN-E")
 
 **Prerequisites**: none — `clean-sample` is a pure file-manipulation command, no lib/service-v2.sh dependency.
 

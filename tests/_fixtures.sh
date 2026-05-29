@@ -309,6 +309,17 @@ while [ $i -lt ${#args[@]} ]; do
     --resource-group=*)   rg="${a#*=}" ;;
     --subscription)       i=$((i+1)); sub="${args[$i]:-}" ;;
     --subscription=*)     sub="${a#*=}" ;;
+    --parameters)
+      # --parameters consumes N space-separated key=value pairs until the
+      # next flag (az convention). Advance past all of them so they don't
+      # leak into the subcmd key.
+      while [ $((i+1)) -lt ${#args[@]} ]; do
+        case "${args[$((i+1))]}" in
+          --*|-*) break ;;
+          *) i=$((i+1)) ;;
+        esac
+      done
+      ;;
     --*|-*)               i=$((i+1)) ;;
     *)                    [ -z "$subcmd" ] && subcmd="$a" || subcmd="${subcmd}_$a" ;;
   esac
