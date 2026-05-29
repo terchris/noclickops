@@ -9,7 +9,7 @@
 
 **Completed**: 2026-05-29
 
-**Outcomes**: `lib/service-v2.sh` (PLAN-A), `bin/info.sh` (PLAN-B), `bin/deploy.sh` with multi-pipeline orchestration (PLAN-C), `bin/logs.sh` + `bin/shell.sh` (PLAN-D), `bin/clean-sample.sh` (PLAN-E), `bin/add-service.sh` with two-PR auto-merge (PLAN-F). Version bumped to 2.0.0. v1's `lib/service.sh` + `lib/service.ps1` still in the tree pending cleanup (PLAN-G — separate follow-up).
+**Outcomes**: `lib/service-v2.sh` (PLAN-A), `bin/info.sh` (PLAN-B), `bin/deploy.sh` with multi-pipeline orchestration (PLAN-C), `bin/logs.sh` + `bin/shell.sh` (PLAN-D), `bin/clean-sample.sh` (PLAN-E), `bin/add-service.sh` with two-PR auto-merge (PLAN-F). Version bumped to **1.6.0** (minor — keeps semver-major in reserve until v2 is proven on a live target repo end-to-end; the 2.0.0 cut happens once manual smoke confirms everything works). v1's `lib/service.sh` + `lib/service.ps1` still in the tree pending cleanup (PLAN-G — separate follow-up).
 
 **Goal**: Cut over `noclickops` from the FRT-shaped repo layout (v1.x) to the new layout used by `copier-add-service`-generated repos like `ABC100001-myservice`. v2 supports the new layout only. v1.x stays available for FRT users via the existing tag.
 
@@ -345,7 +345,7 @@ v1.5.x merges only PR-A (source repo). v2 waits for **both** PRs:
 
 ### Version bump
 
-v1.5.x → **v2.0.0** when PLAN-A through PLAN-F land. Semver major (target-repo contract change). v1 stays available via the `v1.5.x` tag for anyone still on FRT.
+v1.5.x → **v1.6.0** when PLAN-A through PLAN-F land (minor — semver-major reserved until v2 is proven on a live target repo end-to-end). Once manual smoke confirms every command works, a follow-up bumps to **v2.0.0** (semver major; the target-repo contract change deserves a major when ready). v1 stays available via the `v1.5.x` tag for anyone still on FRT.
 
 The `--watch-live` flag for first-time public-endpoint deploys is filed separately as [PLAN-watch-live-deploy.md](../backlog/PLAN-watch-live-deploy.md) — ships as part of v2's PLAN-C `--watch-live` flag.
 
@@ -382,6 +382,6 @@ The `--watch-live` flag for first-time public-endpoint deploys is filed separate
 
 - [ ] Draft PLAN-A (`lib/service.sh` for the new layout).
 - [ ] Draft PLAN-B (info), PLAN-C (deploy), PLAN-D (logs/shell), PLAN-E (clean-sample).
-- [ ] Each PLAN ships as its own PR; v2.0.0 cut after PLAN-E merges.
+- [x] Per CLAUDE.md PR-per-investigation rule, all 6 plans accumulate on one branch; single PR opens after PLAN-F. **Version → 1.6.0** (minor); 2.0.0 (major) cut reserved for after live-repo smoke confirms v2 works end-to-end.
 - [ ] Move this INVESTIGATE to `completed/` when PLAN-E merges.
 - [ ] Pin the current FRT-supporting state as `v1.5.x` tag for users who haven't migrated.

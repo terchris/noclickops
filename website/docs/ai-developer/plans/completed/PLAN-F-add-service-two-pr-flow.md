@@ -22,7 +22,7 @@
 - `tests/test-PLAN-007-add-service.sh` + `tests/test-PLAN-007a-status.sh` deleted. New `tests/test-PLAN-F-add-service.sh` (36 asserts) covers help/usage/validation/happy path/--no-merge/PR-B timeout/flag pass-through.
 - Stub updated: `--parameters` now consumes ALL following positional values until the next flag (previously they leaked into the subcmd key).
 - `git fetch --prune` + `git merge --ff-only` skipped when `NCO_AZ_OVERRIDE` is set (test mode) to avoid hanging on fake remotes.
-- **version.txt → 2.0.0**. v1.5.4 tag stays available for FRT-shaped users.
+- **version.txt → 1.6.0** (minor bump; 2.0.0 reserved for after live verification). v1.5.4 tag stays available for FRT-shaped users.
 - INVESTIGATE-new-target-structure moved to `completed/`; status updated to reference all 6 child plans (A-F).
 - Total tests: 434 → 429 passing, 0 failed (net after deleting v1 PLAN-007 + PLAN-007a tests).
 - **End of v2 investigation.** Branch `feat/v2-new-target-structure` is now ready for the investigation-wide PR.
@@ -221,14 +221,14 @@ User confirms phase is complete.
 - [x] 4.3 Update `website/docs/contributors/lib-service-v2.md`:
   - Add `find_pr_in_project` + `merge_pr_in_project` to the Public API table.
   - Update the v2-consumers table: add `bin/add-service.sh`.
-- [x] 4.4 Bump `version.txt` to **`2.0.0`** (per the investigation — semver major for the target-repo contract change). v1 stays available at the `v1.5.4` tag.
+- [x] 4.4 Bump `version.txt` to **`1.6.0`** (minor bump — keep semver major in reserve until v2 is proven on a live target repo). The 2.0.0 cut happens in a follow-up commit once manual smoke confirms every command works end-to-end. v1 stays available at the `v1.5.4` tag.
 - [x] 4.5 Update the install / `--help` headline references that show the version (if any need refresh beyond `version.txt`).
 
 ### Validation
 
 ```bash
 cd website && npm run build
-cat version.txt    # should show 2.0.0
+cat version.txt    # should show 1.6.0
 ```
 
 User confirms phase is complete.
@@ -275,7 +275,7 @@ File as a separate PLAN in `backlog/` (PLAN-G-v1-cleanup or similar) after PLAN-
 - [ ] `lib/service-v2.sh` has `find_pr_in_project` + `merge_pr_in_project` (tested in test-PLAN-A)
 - [ ] `tests/test-PLAN-F-add-service.sh` exists and passes
 - [ ] `tests/test-PLAN-007-add-service.sh` + `tests/test-PLAN-007a-status-and-fire-forget.sh` deleted
-- [ ] `version.txt` shows `2.0.0`
+- [x] `version.txt` shows `1.6.0` (2.0.0 reserved for after live verification)
 - [ ] `INVESTIGATE-new-target-structure.md` moved to `completed/` with Status: Completed
 - [ ] All tests pass; manual smoke against a live repo confirms both PRs auto-merge
 
@@ -289,7 +289,7 @@ File as a separate PLAN in `backlog/` (PLAN-G-v1-cleanup or similar) after PLAN-
 - `tests/test-PLAN-007a-status-and-fire-forget.sh` (delete)
 - `tests/test-PLAN-A-service-discovery.sh` (add tests for the 2 new lib functions)
 - `tests/test-PLAN-F-add-service.sh` (new)
-- `version.txt` → `2.0.0`
+- `version.txt` → `1.6.0`
 - `website/docs/getting-started.md`
 - `website/docs/contributors/target-layout-reference.md`
 - `website/docs/contributors/lib-service-v2.md`
@@ -320,9 +320,11 @@ PR-A appears ~1-2 min after the source-pipeline succeeds (downstream automation 
 
 PLAN-A through PLAN-E cover all the in-band commands. `add-service` (PLAN-F) is the entry point — without it, no service exists to deploy/inspect. With PLAN-F shipped, the v2 cutover is complete: every active command works against the new layout, and the engineer-driven layout drift the investigation warned about is wrapped (not replicated) by noclickops's discovery layer.
 
-### v2.0.0 semver justification
+### Version: 1.6.0 (minor) for now, 2.0.0 (major) reserved
 
-The target-repo contract changed (FRT-shaped → new layout). Users running noclickops against an FRT repo on v2.0 will see all v2 commands fail. That's a breaking change for the FRT-shaped audience, even if internally we consider it a clean cutover. Semver major is the right signal. v1.5.4 stays available for FRT users via the existing git tag — they pin and keep working.
+The target-repo contract changed (FRT-shaped → new layout), which from a strict semver standpoint is a breaking change deserving 2.0.0. But the v2 code hasn't been smoke-tested against a live new-layout repo end-to-end yet — the test suite is comprehensive but everything goes through stubs.
+
+Shipping 2.0.0 before live verification would lock in the "this is the v2 release" claim before we know it actually works. Instead: bump to **1.6.0** (minor), ship, run the live smoke. If everything works, bump 1.6.0 → 2.0.0 in a follow-up commit. If issues surface, fix them as 1.6.1/1.6.2 patches and bump to 2.0.0 only when truly ready. v1.5.4 stays available for FRT users via the existing git tag — they pin and keep working.
 
 ### Out of scope for PLAN-F
 
