@@ -31,7 +31,8 @@ What works on each, as of v1.5.x:
 | `info` | ✓ | **v2** — reads `services/<svc>/config.<env>.yaml` + IaC variables via ADO REST, discovers container app via `az containerapp list`. Public services show a `Public URL` line. |
 | `logs`, `shell` | ✓ | **v2** — discovers container app via `az containerapp list` against the IaC-declared subscription/RG; gates on discovery failure (no degraded mode). Override with `SVC_APP_NAME_OVERRIDE` + `SVC_RG_OVERRIDE`. |
 | `deploy` | ✓ | **v2** — multi-pipeline orchestration. Detects first-time vs subsequent automatically. First-time chains 4 pipelines (build → deploy → infra-build → deploy-test, ~10 min). Subsequent triggers `<repo>-<svc>-deploy` and exits; `--watch` follows the auto-triggered IaC deploy-test too. |
-| `clean-sample`, `sync-lovable` | ✓ (Next.js sample / Lovable mirror) | Different sample shape; v2 refactor needed. |
+| `clean-sample` | ✓ (Next.js sample) | **v2** — replaces the Express+OIDC template with a minimal Express+`/health` stub for services that don't need OIDC. Refuses if `app/server.js` has been modified. |
+| `sync-lovable` | ✓ (Lovable mirror) | Different sample shape; v2 deferred — no concrete use case yet. |
 
 ---
 

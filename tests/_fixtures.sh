@@ -159,6 +159,68 @@ EOF
   printf '%s' "$d"
 }
 
+# Overwrite a v2 service's app/{server.js,package.json} with the unmodified
+# Express+OIDC template content (matching what copier-add-service produces).
+# Used by PLAN-E tests; carries the content marker that bin/clean-sample.sh
+# greps for.
+# Usage: scaffold_v2_oidc_sample <service-dir>
+scaffold_v2_oidc_sample() {
+  local d="$1"
+  mkdir -p "$d/app"
+  cat > "$d/app/server.js" <<'EOF'
+const express = require('express');
+const session = require('express-session');
+const { Issuer, generators } = require('openid-client');
+
+const app = express();
+const port = process.env.PORT || 3000;
+
+// OKTA_ISSUER and APP_BASE_URL are set as plain env vars in config.{env}.yaml.
+// OKTA_CLIENT_ID and OKTA_CLIENT_SECRET are injected from Azure Key Vault at container
+// startup via the Container App's system-assigned managed identity — never stored in config files.
+const OKTA_ISSUER  = process.env.OKTA_ISSUER  || '';
+const CALLBACK_URL = process.env.APP_BASE_URL  || `http://localhost:${port}`;
+
+app.use(session({
+  secret: process.env.SESSION_SECRET || 'dev-only-secret-change-in-production',
+  resave: false,
+  saveUninitialized: false,
+  cookie: { secure: false, httpOnly: true, maxAge: 60 * 60 * 1000 },
+}));
+
+app.get('/health', (_req, res) => res.json({ status: 'ok' }));
+
+let client;
+(async () => {
+  if (OKTA_ISSUER) {
+    const issuer = await Issuer.discover(OKTA_ISSUER);
+    client = new issuer.Client({
+      client_id: process.env.OKTA_CLIENT_ID,
+      client_secret: process.env.OKTA_CLIENT_SECRET,
+      redirect_uris: [`${CALLBACK_URL}/callback`],
+      response_types: ['code'],
+    });
+  }
+})();
+
+app.listen(port, () => {
+  console.log(`Listening on port ${port}`);
+});
+EOF
+  cat > "$d/app/package.json" <<'EOF'
+{
+  "name": "service",
+  "version": "1.0.0",
+  "scripts": { "start": "node server.js" },
+  "dependencies": {
+    "express": "^4.18.3",
+    "express-session": "^1.18.0",
+    "openid-client": "^4.9.1"
+  }
+}
+EOF
+}
+
 # Build a fake IaC repo layout on disk, populated with platform variables
 # for a given source repo + service. Returns the IaC repo root dir.
 # Usage: iac_root=$(make_v2_iac_repo <team> <source-repo-name>)
