@@ -31,6 +31,19 @@ for bad_args in "-leading-dash" "with/slash" "with backslash"; do
   assert_eq "1" "$rc" "planF: rejects bad name '$bad_args'"
 done
 
+# 20-char limit (Container Apps name budget — ca-<env>-<TENANT>-<svc> ≤ 32)
+out=$(cd "$src" && "$NCO_ROOT/bin/add-service.sh" "this-name-is-21-chars" 2>&1); rc=$?
+assert_eq "1" "$rc"                       "planF: rejects 21-char name"
+assert_contains "$out" "max 20"           "planF: error mentions 20-char limit"
+assert_contains "$out" "32-char limit"    "planF: error explains the platform constraint"
+# Exactly 20 chars should be accepted past validation (will fail later on real az,
+# but pre-validation passes)
+out=$(cd "$src" && "$NCO_ROOT/bin/add-service.sh" "exactly-twenty-chars" 2>&1); rc=$?
+case "$out" in
+  *"too long"*) fail "planF: 20-char name should be accepted by validation" "got: $out" ;;
+  *)            pass "planF: 20-char name passes pre-validation" ;;
+esac
+
 # Service folder already exists
 mkdir -p "$src/services/existing"
 out=$(cd "$src" && "$NCO_ROOT/bin/add-service.sh" existing 2>&1); rc=$?

@@ -42,6 +42,25 @@ _nco_az() {
   fi
 }
 
+# nco_git <git-args...>
+# Wraps `git` so it authenticates to ADO with the current az token. Use for
+# any git operation against an ADO remote (fetch, push, clone). Falls back
+# to plain `git` if no az token is available — caller handles auth failure
+# itself in that case.
+#
+# Reads TARGET_REPO if set; falls back to git's auto-detection of the cwd.
+nco_git() {
+  local target="${TARGET_REPO:-}" token=""
+  token=$(_nco_az account get-access-token \
+    --resource "${NCO_ADO_APP_ID:-499b84ac-1321-427f-aa17-267ca6975798}" \
+    --query accessToken -o tsv 2>/dev/null) || true
+  if [ -n "$token" ]; then
+    git ${target:+-C "$target"} -c http.extraheader="AUTHORIZATION: bearer $token" "$@"
+  else
+    git ${target:+-C "$target"} "$@"
+  fi
+}
+
 # Wraps a GET against the ADO REST API. Args: <url>.
 # Tests set NCO_ADO_REST_OVERRIDE to a stub that maps URL → local file content.
 _nco_ado_rest_get() {
