@@ -33,7 +33,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           # actions/checkout defaults to the PR's merge ref, which checks
           # out a detached HEAD. The PLAN-002 install.sh test then clones
