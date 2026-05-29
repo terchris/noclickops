@@ -16,20 +16,23 @@
 #   NOCLICKOPS_DIR        default: $HOME/.noclickops
 #   NOCLICKOPS_REPO_URL   default: https://github.com/terchris/noclickops.git
 #
-# Slim install (v1.5.1+, shallow as of v1.5.2):
+# Slim install (v1.5.1+, shallow as of v1.5.2, non-cone strict in v1.5.4):
 #   The installer does two things on top of a normal clone to keep user
 #   installs tiny:
 #     1. `git clone --depth=1` — shallow clone; just the tip of main, no
 #        history. Total .git/ size ~150 KB instead of ~1 MB+.
-#     2. `git sparse-checkout --cone set bin lib templates shell` — only
-#        the folders users actually run from end up in the working tree
-#        (~250 KB instead of the full ~10 MB).
+#     2. Non-cone `git sparse-checkout set /bin/ /lib/ /templates/
+#        /shell/ /version.txt` — only what noclickops needs at runtime.
+#        Root-level files (README, LICENSE, AGENTS.md, CLAUDE.md,
+#        installer scripts) and dev-only folders (website/, tests/,
+#        scripts/, .github/) stay in .git/ but never appear on disk.
 #   `noclickops update` (bin/update.sh) uses `git pull --ff-only` which
 #   maintains both the shallow boundary and the sparse set, so the install
 #   stays small over time.
 #   Contributors who need the full tree (to edit website/, tests/, etc.)
 #   should `git clone` the repo directly rather than going through this
-#   installer.
+#   installer. The installer itself can be re-run via curl-piped-to-bash
+#   any time — its script content is not in the slim install on purpose.
 
 set -euo pipefail
 
@@ -81,17 +84,27 @@ command -v git >/dev/null 2>&1 || die "'git' not found on PATH. Install git firs
 
 # --- Sparse-checkout: only check out what users run from ------------------
 #
-# Cone-mode sparse-checkout restricts the working tree to bin/, lib/, and
-# templates/. The other folders (website/, tests/, scripts/, .github/,
-# anything else) stay in .git/ but never materialize on disk. Idempotent —
-# safe to call on a fresh clone OR on an existing full clone (in which
-# case git removes the now-excluded files).
+# Non-cone sparse-checkout. The working tree contains ONLY the folders
+# (bin/, lib/, templates/, shell/) and the single file (version.txt) that
+# noclickops needs at runtime. Everything else — root-level docs
+# (README, LICENSE, AGENTS.md, CLAUDE.md), installer scripts, the docs
+# website, tests, CI, plans — stays in .git/ but never materializes on
+# disk. Idempotent: safe to call on a fresh clone OR on an existing full
+# clone (git removes the now-excluded files).
+#
+# Cone mode was used in v1.5.1–v1.5.3 but it always keeps root-level
+# files. Switched to non-cone in v1.5.4 to enforce the "only what's
+# needed at runtime" principle. Non-cone has known performance cliffs on
+# huge repos but is fine for noclickops's size.
 slim_checkout() {
-  if ! git -C "$NOCLICKOPS_DIR" sparse-checkout init --cone 2>/dev/null; then
+  if ! git -C "$NOCLICKOPS_DIR" sparse-checkout init --no-cone 2>/dev/null; then
     warn "sparse-checkout init failed (git too old? need 2.25+). Skipping slim layout."
     return 0
   fi
-  git -C "$NOCLICKOPS_DIR" sparse-checkout set bin lib templates shell
+  # Non-cone patterns: leading slash anchors to repo root; trailing slash
+  # restricts to a directory. The /version.txt entry is a single file.
+  git -C "$NOCLICKOPS_DIR" sparse-checkout set \
+    '/bin/' '/lib/' '/templates/' '/shell/' '/version.txt'
 }
 
 # --- Clone or pull --------------------------------------------------------
