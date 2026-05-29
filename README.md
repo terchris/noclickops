@@ -16,7 +16,7 @@ The installer clones noclickops to `~/.noclickops`, adds `~/.noclickops/bin` to 
 
 Re-running the installer is idempotent: it pulls the latest if already installed and never duplicates the rc-file line.
 
-> **Slim by default (v1.5.1+).** The installer sparse-checks-out only the folders users run from (`bin/`, `lib/`, `templates/`, `shell/`) — around 240 KB working tree instead of the full ~10 MB. The full repo history is still in `.git/`, so `noclickops update` keeps working as usual. Contributors who need the full tree (to edit `website/`, `tests/`, etc.) should `git clone` the repo directly instead of using the installer.
+> **Slim by default (v1.5.2+).** The installer does a shallow clone (`--depth=1`) and sparse-checks-out only the folders users run from (`bin/`, `lib/`, `templates/`, `shell/`) — around **350 KB total** (working tree + `.git/`) instead of the full ~10 MB. `noclickops update` (`git pull --ff-only`) maintains both the shallow boundary and the sparse set, so the install stays small over time. Contributors who need the full tree (to edit `website/`, `tests/`, etc.) should `git clone` the repo directly instead of using the installer.
 
 > **Upgrading from v1.0.x**: existing installs use a shell-function-based dispatcher loaded from `shell/init.sh`. That still works after `noclickops update`. To switch to the v1.1.0 PATH-based mechanism (so `noclickops` resolves outside interactive shells too), re-run `install.sh` — it'll add the PATH line and tell you what to remove.
 

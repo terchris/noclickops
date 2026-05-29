@@ -16,13 +16,20 @@
 #   NOCLICKOPS_DIR        default: $HOME/.noclickops
 #   NOCLICKOPS_REPO_URL   default: https://github.com/terchris/noclickops.git
 #
-# Slim install (v1.5.1+):
-#   After cloning, this installer enables git sparse-checkout so the working
-#   tree only contains the folders users actually run from (bin/, lib/,
-#   templates/, shell/) — roughly 250 KB instead of the full ~10 MB. The full repo
-#   history is still in .git/ (git log etc. work). Contributors who need the
-#   full tree (to edit website/, tests/, etc.) should `git clone` the repo
-#   directly rather than going through this installer.
+# Slim install (v1.5.1+, shallow as of v1.5.2):
+#   The installer does two things on top of a normal clone to keep user
+#   installs tiny:
+#     1. `git clone --depth=1` — shallow clone; just the tip of main, no
+#        history. Total .git/ size ~150 KB instead of ~1 MB+.
+#     2. `git sparse-checkout --cone set bin lib templates shell` — only
+#        the folders users actually run from end up in the working tree
+#        (~250 KB instead of the full ~10 MB).
+#   `noclickops update` (bin/update.sh) uses `git pull --ff-only` which
+#   maintains both the shallow boundary and the sparse set, so the install
+#   stays small over time.
+#   Contributors who need the full tree (to edit website/, tests/, etc.)
+#   should `git clone` the repo directly rather than going through this
+#   installer.
 
 set -euo pipefail
 
@@ -110,7 +117,11 @@ elif [ -e "$NOCLICKOPS_DIR" ]; then
 else
   step "Installing noclickops to $NOCLICKOPS_DIR"
   info "Source: $NOCLICKOPS_REPO_URL"
-  if ! git clone "$NOCLICKOPS_REPO_URL" "$NOCLICKOPS_DIR"; then
+  # Shallow clone (--depth=1) — users don't browse history, and `git pull
+  # --ff-only` (what bin/update.sh runs) maintains the shallow boundary
+  # over time, so .git/ stays small forever. Total fresh install ends up
+  # around 350 KB (sparse working tree + shallow .git).
+  if ! git clone --depth=1 "$NOCLICKOPS_REPO_URL" "$NOCLICKOPS_DIR"; then
     die "git clone failed."
   fi
   ok "Cloned to $NOCLICKOPS_DIR."
