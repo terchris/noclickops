@@ -15,6 +15,14 @@
 # Env overrides (for testing / forks):
 #   NOCLICKOPS_DIR        default: $HOME/.noclickops
 #   NOCLICKOPS_REPO_URL   default: https://github.com/terchris/noclickops.git
+#
+# Slim install (v1.5.1+):
+#   After cloning, this installer enables git sparse-checkout so the working
+#   tree only contains the folders users actually run from (bin/, lib/,
+#   templates/, shell/) — roughly 250 KB instead of the full ~10 MB. The full repo
+#   history is still in .git/ (git log etc. work). Contributors who need the
+#   full tree (to edit website/, tests/, etc.) should `git clone` the repo
+#   directly rather than going through this installer.
 
 set -euo pipefail
 
@@ -64,6 +72,21 @@ NOCLICKOPS_REPO_URL="${NOCLICKOPS_REPO_URL:-https://github.com/terchris/noclicko
 
 command -v git >/dev/null 2>&1 || die "'git' not found on PATH. Install git first."
 
+# --- Sparse-checkout: only check out what users run from ------------------
+#
+# Cone-mode sparse-checkout restricts the working tree to bin/, lib/, and
+# templates/. The other folders (website/, tests/, scripts/, .github/,
+# anything else) stay in .git/ but never materialize on disk. Idempotent —
+# safe to call on a fresh clone OR on an existing full clone (in which
+# case git removes the now-excluded files).
+slim_checkout() {
+  if ! git -C "$NOCLICKOPS_DIR" sparse-checkout init --cone 2>/dev/null; then
+    warn "sparse-checkout init failed (git too old? need 2.25+). Skipping slim layout."
+    return 0
+  fi
+  git -C "$NOCLICKOPS_DIR" sparse-checkout set bin lib templates shell
+}
+
 # --- Clone or pull --------------------------------------------------------
 
 FRESH_INSTALL=0
@@ -73,6 +96,15 @@ if [ -d "$NOCLICKOPS_DIR/.git" ]; then
     die "git pull failed in $NOCLICKOPS_DIR — resolve manually, then re-run."
   fi
   ok "noclickops up to date."
+
+  # Slim an existing pre-v1.5.1 full install if sparse-checkout isn't on yet.
+  if [ "$(git -C "$NOCLICKOPS_DIR" config --get core.sparseCheckout 2>/dev/null)" != "true" ]; then
+    info "Slimming install — restricting working tree to bin/ lib/ templates/ shell/ only."
+    info "(Full repo history still in .git/; contributors who want the full tree can run"
+    info " 'git -C $NOCLICKOPS_DIR sparse-checkout disable' to restore it.)"
+    slim_checkout
+    ok "Install slimmed."
+  fi
 elif [ -e "$NOCLICKOPS_DIR" ]; then
   die "$NOCLICKOPS_DIR exists but is not a git checkout. Move it aside and re-run."
 else
@@ -82,6 +114,11 @@ else
     die "git clone failed."
   fi
   ok "Cloned to $NOCLICKOPS_DIR."
+
+  # Slim the fresh clone to the runtime-only path set.
+  slim_checkout
+  ok "Slim layout applied (bin/ lib/ templates/ shell/ only)."
+
   FRESH_INSTALL=1
 fi
 

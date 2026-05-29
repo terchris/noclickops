@@ -1,6 +1,13 @@
 #!/usr/bin/env bash
 # bin/update.sh — pull the latest noclickops from origin.
 #
+# Sparse-checkout interaction (v1.5.1+): `git pull --ff-only` is
+# sparse-checkout-aware — it pulls all refs into .git/ but only materializes
+# files listed in the active sparse set (bin/ lib/ templates/ by default).
+# Nothing to do here; the slim install behaviour is set up entirely in
+# install.sh. To change the sparse set on an existing install, re-run
+# install.sh or use `git -C ~/.noclickops sparse-checkout` directly.
+#
 # --- noclickops metadata ---
 SCRIPT_NAME="update"
 SCRIPT_DESCRIPTION="Pull the latest noclickops from origin (fast-forward only)."

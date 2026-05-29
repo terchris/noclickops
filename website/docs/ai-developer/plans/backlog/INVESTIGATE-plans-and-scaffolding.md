@@ -1,0 +1,180 @@
+# Investigate: scaffold the AI-developer workflow + Docusaurus stack into other projects
+
+> **IMPLEMENTATION RULES:** Before implementing the plans that come out of this investigation, read and follow:
+>
+> - [WORKFLOW.md](../../WORKFLOW.md) — the implementation process
+> - [PLANS.md](../../PLANS.md) — plan structure and best practices
+
+## Status: Backlog — 4 PLANs scoped, ready to ship
+
+**Goal**: Make noclickops install only what users need (PLAN-A), and add three commands that copy the noclickops AI-developer workflow + Docusaurus docs stack into other projects so they can adopt the same way of working (PLAN-B/C/D).
+
+**Last Updated**: 2026-05-29
+
+---
+
+## Why
+
+1. **Install bloat.** noclickops's `~/.noclickops` clone is ~10 MB today and growing — almost entirely the `website/` docs source (Docusaurus app + every shipped PLAN in `website/docs/ai-developer/plans/completed/`). Users only need `bin/`, `lib/`, `templates/` to run commands. The rest is contributor/maintainer content.
+
+2. **The workflow is portable but its location isn't.** Atlas, urbalurba-infrastructure, dev-templates and other projects all want the same `WORKFLOW.md` + `PLANS.md` + `GIT.md` + plans tree, but each bootstrapped them independently. There's no `noclickops scaffold-ai-developer my-new-project` today.
+
+---
+
+## Design principle
+
+**Every repo owns its own copy of the AI-developer workflow.** The process docs (`WORKFLOW.md`, `PLANS.md`, etc.) and the plans tree live inside each project's repo as copied files — never as a shared npm package, git submodule, or external dependency.
+
+A project at noclickops v3.0 might still run with the `WORKFLOW.md` it scaffolded at v1.2 — that's a feature, not a problem. The workflow describes how *that team* works on *that project*. For projects that DO want to pull in upstream changes later, `noclickops update-ai-developer` (PLAN-D) refreshes the copy with a per-file diff + prompt.
+
+---
+
+## What gets built
+
+### PLAN-A — Sparse-checkout slim install
+
+`install.sh` switches from full `git clone` to clone + `git sparse-checkout init --cone` + `set bin lib templates`. Users get ~250 KB instead of ~10 MB; `update.sh` keeps using `git pull --ff-only` (sparse-aware, no change needed). A fork that wants the full tree (e.g. contributing back) can opt out via env var.
+
+**Solves**: install bloat. Plans stay where they are; they just no longer ship to every user.
+
+### PLAN-B — `noclickops scaffold-ai-developer [<target>]`
+
+Copies `templates/ai-developer/` (curated, project-agnostic versions of the workflow docs) into `<target>/website/docs/ai-developer/`.
+
+**Two modes:**
+
+- **With `<target>`** — scaffold into that path. Non-interactive (suitable for scripts).
+- **Without `<target>`** — scaffold into the current directory (`pwd`). The command first prints a preview and asks for explicit confirmation before writing anything:
+
+  ```text
+  $ cd ~/work/JKL900X016-NerdMeet
+  $ noclickops scaffold-ai-developer
+  Will scaffold the AI-developer workflow into:
+    target:        /Users/me/work/JKL900X016-NerdMeet
+    docs folder:   website/docs/ai-developer/
+    project name:  JKL900X016-NerdMeet (derived from origin)
+    plans folder:  website/docs/ai-developer/plans/{backlog,active,completed}/
+    repo root:     + CLAUDE.md + AGENTS.md
+  Continue? [y/N]
+  ```
+
+What lands in the target:
+
+- `README.md`, `WORKFLOW.md`, `PLANS.md`, `GIT.md`, `AZURE-DEVOPS.md`, `TALK.md`, `WORKTREE.md`, `DEVCONTAINER.md` — copied as-is.
+- `project-<projectname>.md` — rendered from a template, where `<projectname>` is derived from the target repo's `git remote get-url origin` (parse rule below).
+- Empty folders `plans/backlog/`, `plans/active/`, `plans/completed/` at `<target>/website/docs/ai-developer/plans/`.
+- `<target>/CLAUDE.md` and `<target>/AGENTS.md` at the target's repo root, pointing at the new `website/docs/ai-developer/` so AI tooling auto-loads them.
+
+Behaviour:
+- Refuses if any target file already exists; `--force` to clobber.
+- Reads templates from `templates/ai-developer/` in the installed noclickops (`$NOCLICKOPS_DIR/templates/ai-developer/`).
+- The confirmation prompt is shown ONLY in the no-`<target>` mode — passing a path is treated as explicit intent, no extra confirmation needed (matches the script-friendly half of the command).
+
+### PLAN-C — `noclickops scaffold-docs [<target>]`
+
+Copies `templates/docusaurus/` into `<target>/website/` so the target gets a Docusaurus site ready to render its own `ai-developer/` docs.
+
+Same two-mode pattern as PLAN-B: pass `<target>` for non-interactive, omit it to use `pwd` with a confirmation prompt showing what will land where.
+
+What lands in the target:
+
+- `website/package.json` (noclickops's Docusaurus dependency set: 3.10.1 + classic preset + faster + theme-mermaid + local search).
+- `website/docusaurus.config.ts` (with placeholders pre-filled from `--name` / git remote / project title prompt; user edits the rest later).
+- `website/sidebars.ts` (autogenerated sidebar pointing at `docs/`).
+- `website/tsconfig.json`.
+- `website/src/css/custom.css` (brand-color placeholder).
+- `website/src/pages/index.tsx` (atlas-style hero homepage template).
+- `.github/workflows/deploy-docs.yml`.
+
+Behaviour:
+- Prompts only for **project title** (defaults to `<projectname>` from the git remote derivation). Everything else uses template defaults; user edits `docusaurus.config.ts` after.
+- Refuses if `website/` already exists; `--force` to clobber.
+- Does **not** run `npm install` — prints a "next steps: `cd website && npm install`" hint instead. The target host may not have npm/node, and scaffolding shouldn't depend on it.
+
+### PLAN-D — `noclickops update-ai-developer`
+
+Re-copies `templates/ai-developer/` over the target's existing `website/docs/ai-developer/`. For projects that scaffolded at noclickops v1.2 and want the v1.5 process improvements.
+
+Behaviour:
+- Per-file diff + prompt by default; `--force` to skip prompts; `--dry-run` to preview.
+- Backups go to `website/docs/ai-developer/.backup-YYYYMMDD-HHMMSS/` so users can roll back.
+- **Skips** `project-<name>.md` (project-specific, not a template).
+- **Skips** `plans/` entirely (project state, not a template).
+
+---
+
+## `{{PROJECT_NAME}}` derivation (used by PLAN-B and PLAN-C)
+
+```text
+1. Run `git -C <target> remote get-url origin` to get the URL.
+2. Parse:
+   - ADO HTTPS:  https://dev.azure.com/<org>/<project>/_git/<repo>     → <repo>
+   - ADO SSH:    git@ssh.dev.azure.com:v3/<org>/<project>/<repo>       → <repo>
+   - GitHub HTTPS: https://github.com/<owner>/<repo>(.git)?            → <repo>
+   - GitHub SSH:   git@github.com:<owner>/<repo>(.git)?                → <repo>
+   - Unknown:    fall back to `basename $(git -C <target> rev-parse --show-toplevel)`
+3. The user can override with `--name <slug>` (skips parsing).
+```
+
+Examples: `JKL900X016-NerdMeet`, `ABC100001-myservice`, `atlas`, `urbalurba-infrastructure`.
+
+The ADO parsing logic already exists in `lib/azdo.sh::derive_azdo_context`. GitHub URL parsing is a small addition.
+
+---
+
+## Files rendered in `project-<projectname>.md`
+
+A template with these substitutions:
+
+| Variable | Source |
+|---|---|
+| `{{PROJECT_NAME}}` | From the derivation above |
+| `{{PROJECT_DESCRIPTION}}` | One-line; prompted at scaffold time (PLAN-B) |
+| `{{GIT_PLATFORM}}` | `github` or `azure-devops`, detected from the target's origin URL |
+| `{{REPO_URL}}` | The target's `origin` URL, normalised |
+| `{{HAS_DEVCONTAINER}}` | Boolean; detected from `.devcontainer/` in target |
+| `{{HAS_DOCUSAURUS}}` | Boolean; detected from `website/docusaurus.config.ts` in target |
+
+Sections that always render:
+- A short "what this repo contains" tree from `git ls-files` (top 2 levels).
+- "How it's used" — placeholder block the user fills in.
+- "Platform" — `GitHub` or `Azure DevOps`, pointing at the right subset of `GIT.md` / `AZURE-DEVOPS.md`.
+- "Devcontainer" — either points at `DEVCONTAINER.md` or says "no devcontainer; ignore".
+- "Always-critical rules" — copied verbatim from the template.
+
+---
+
+## PR sequencing
+
+**PLAN-A** ships as its own small PR (sparse-checkout is a ~20-line `install.sh` change, isolated, immediate value). PLAN-B / C / D ship together as one PR per the "PR per investigation" rule — they share `templates/ai-developer/` + `templates/docusaurus/` curation work.
+
+Bumps:
+- PLAN-A → v1.5.1 (patch — install behaviour change only)
+- PLAN-B + C + D → v1.6.0 (minor — three new user-facing commands)
+
+---
+
+## Risks
+
+1. **Sister projects already have AI-developer layouts.** Atlas, urbalurba-infrastructure, etc. won't all be at `website/docs/ai-developer/`. The scaffold must refuse-to-overwrite (already locked in) so it can't silently clobber existing structures.
+
+2. **Template drift.** Once `templates/ai-developer/` exists, every change to noclickops's own `WORKFLOW.md` etc. needs to ask "is this also right for downstream projects?". PLAN-D's `update-ai-developer` partially mitigates this — projects can re-sync deliberately — but a periodic check (e.g. a `tests/test-templates-match.sh` that diffs `website/docs/ai-developer/*.md` against `templates/ai-developer/*.md` for the project-agnostic files) would catch drift early.
+
+3. **`{{PROJECT_NAME}}` parsing.** ADO and GitHub URL shapes are stable, but the fallback (`basename $REPO_ROOT`) bites when the local folder name doesn't match the canonical repo name. `--name` override is the escape hatch; document it.
+
+4. **Mission framing.** noclickops's stated mission is "wrap existing pipelines, never re-implement." Scaffolding crosses into "copy curated templates." The existing `templates/lovable/` + `bin/sync-lovable.sh` is precedent, so the line was already fuzzy — but `project-noclickops.md` should add a note that noclickops *also* does **"copy curated templates into new project layouts"** as a secondary mission.
+
+---
+
+## Follow-up: merge with dev-templates
+
+`helpers-no/dev-templates` ([tmp.sovereignsky.no](https://tmp.sovereignsky.no/)) is a templates registry. Its scope overlaps with this investigation's `templates/ai-developer/` + `templates/docusaurus/` — both are "starting points for new projects." This investigation ships the scaffolds inside noclickops for now; consolidating with dev-templates is a separate initiative, filed for later.
+
+---
+
+## Next steps
+
+- [ ] Draft PLAN-A (sparse-checkout) and ship as its own PR.
+- [ ] Draft PLAN-B / C / D together; ship as one PR.
+- [ ] Move this INVESTIGATE to `completed/` when PLAN-D merges.
+- [ ] Open a separate INVESTIGATE for merging the scaffolds with dev-templates once PLAN-B/C/D are live and the actual overlap is concrete.
