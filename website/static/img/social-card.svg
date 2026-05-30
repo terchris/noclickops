@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0a0a0a"/>
+      <stop offset="100%" stop-color="#141414"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="630" fill="url(#bg)"/>
+
+  <!-- >_ icon -->
+  <rect x="60" y="80" width="140" height="140" rx="22" fill="#0a0a0a" stroke="#00ff66" stroke-width="3"/>
+  <text x="82" y="180" font-family="ui-monospace,Menlo,Consolas,monospace" font-weight="700" font-size="82" fill="#00ff66">&gt;_</text>
+
+  <!-- noClickOps title (right of the icon, baseline aligned to icon center) -->
+  <text x="230" y="190" font-family="ui-monospace,Menlo,Consolas,monospace" font-weight="700" font-size="118" fill="#ffffff">noClickOps</text>
+
+  <!-- Tagline -->
+  <text x="60" y="335" font-family="system-ui,-apple-system,Segoe UI,sans-serif" font-weight="400" font-size="42" fill="#9ca3af">No clicking around the portal.</text>
+  <text x="60" y="395" font-family="system-ui,-apple-system,Segoe UI,sans-serif" font-weight="400" font-size="42" fill="#9ca3af">Just type the command.</text>
+
+  <!-- Sample command — lowercase because that's what the user types -->
+  <text x="60" y="555" font-family="ui-monospace,Menlo,Consolas,monospace" font-weight="500" font-size="32" fill="#00ff66">$ noclickops deploy my-app test</text>
+</svg>

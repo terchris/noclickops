@@ -5,7 +5,7 @@ sidebar_position: 0
 
 # Contributors
 
-Internal docs for people working **on** noclickops — not just using it. If you're using noclickops as a developer in your daily flow, start with [Getting started](../getting-started.md) instead.
+Internal docs for people working **on** noClickOps — not just using it. If you're using noClickOps as a developer in your daily flow, start with [the docs landing page](../) instead.
 
 ## What lives here
 

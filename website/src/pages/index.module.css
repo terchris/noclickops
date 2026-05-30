@@ -81,7 +81,157 @@
   font-size: 1.25rem;
   font-weight: 400;
   line-height: 1.5;
+  margin-bottom: 1.5rem;
+}
+
+/* Second line of the tagline — smaller, mono, accent green to echo the
+   `$ noclickops …` command block below it. */
+.heroLead {
+  display: inline-block;
+  margin-top: 0.4rem;
+  font-family: var(--ifm-font-family-monospace);
+  font-size: 1.05rem;
+  color: #00ff66;
+}
+
+/* Faux-terminal panel that holds a typed sequence of commands +
+   condensed faux-outputs. Built CSS-only with staggered animations:
+     line N appears (opacity 0 → 1) just before its command types
+     command N types (width 0 → Nch, steps(N))
+     a cursor (border-right) is visible only during line N's typing
+     after line N finishes, its output fades in
+     the LAST line's cursor never hides — it blinks forever
+   See bottom of file for the per-line timing knobs.
+*/
+.heroTerminal {
+  font-family: var(--ifm-font-family-monospace);
+  color: #00ff66;
+  background: rgba(0, 255, 102, 0.05);
+  border: 1px solid rgba(0, 255, 102, 0.25);
+  border-radius: 6px;
+  padding: 0.85rem 1rem;
   margin-bottom: 2rem;
+  font-size: 0.95rem;
+  line-height: 1.55;
+  white-space: pre;
+  overflow-x: auto;
+  max-width: 100%;
+  min-height: 9.5em;  /* reserve vertical space so the page doesn't reflow */
+}
+
+.heroPrompt {
+  color: #9ca3af;
+  margin-right: 0.4rem;
+}
+
+/* One command line. Hidden until its turn. */
+.heroLine {
+  opacity: 0;
+}
+
+/* Output rendered after a command finishes; dim gray, slight indent. */
+.heroOutput {
+  margin: 0 0 0.15rem 1.35rem;
+  color: #9ca3af;
+  font-size: 0.9rem;
+  opacity: 0;
+}
+
+/* Shared typing baseline. Each .heroTypingN sets its own width + timing. */
+.heroTyping {
+  display: inline-block;
+  overflow: hidden;
+  white-space: nowrap;
+  vertical-align: bottom;
+  width: 0;
+  border-right: 2px solid transparent;
+}
+
+/* Shared keyframes for cursor on/off (instant snaps via 0s duration). */
+@keyframes cursorOn  { to { border-right-color: #00ff66; } }
+@keyframes cursorOff { to { border-right-color: transparent; } }
+@keyframes heroLineIn   { to { opacity: 1; } }
+@keyframes heroOutputIn { to { opacity: 1; } }
+@keyframes heroBlink    { 50% { border-right-color: transparent; } }
+
+/* Per-line width keyframes — duration tuned to char count (~85 ms/char). */
+@keyframes heroType1 { to { width: 29ch; } }  /* noclickops add-service my-app */
+@keyframes heroType2 { to { width: 29ch; } }  /* noclickops deploy my-app test */
+@keyframes heroType3 { to { width: 27ch; } }  /* noclickops info my-app test   */
+@keyframes heroType4 { to { width: 27ch; } }  /* noclickops logs my-app test   */
+
+/*
+  Timeline (seconds from page load):
+
+   t       event                          line  what happens
+   ----    -----------------------------  ----  --------------------------
+   0.3     line 1 appears                 1     prompt visible, empty cmd
+   0.3     line 1 cursor on               1     border-right turns green
+   0.3-2.8 line 1 types (29 ch, 2.5 s)    1     width 0 → 29ch
+   2.85    line 1 cursor off              1     border-right transparent
+   3.0     line 1 output fades in         1     "✓ Done…"
+   3.3     line 2 appears                 2
+   3.3     line 2 cursor on               2
+   3.3-5.8 line 2 types (29 ch, 2.5 s)    2
+   5.85    line 2 cursor off              2
+   6.0     line 2 output fades in         2     "✓ Deploy complete…"
+   6.3     line 3 appears                 3
+   6.3     line 3 cursor on               3
+   6.3-8.5 line 3 types (27 ch, 2.2 s)    3
+   8.55    line 3 cursor off              3
+   8.7     line 3 output fades in         3     "ca-my-app — Running…"
+   9.0     line 4 appears                 4
+   9.0     line 4 cursor on               4
+   9.0-11  line 4 types (27 ch, 2.2 s)    4
+   11.2    line 4 cursor starts blinking  4     forever
+*/
+
+.heroLine1 { animation: heroLineIn 0s 0.3s forwards; }
+.heroLine2 { animation: heroLineIn 0s 3.3s forwards; }
+.heroLine3 { animation: heroLineIn 0s 6.3s forwards; }
+.heroLine4 { animation: heroLineIn 0s 9.0s forwards; }
+
+.heroOutput1 { animation: heroOutputIn 0.3s ease-in 3.0s forwards; }
+.heroOutput2 { animation: heroOutputIn 0.3s ease-in 6.0s forwards; }
+.heroOutput3 { animation: heroOutputIn 0.3s ease-in 8.7s forwards; }
+
+.heroTyping1 {
+  animation:
+    heroType1 2.5s steps(29, end) 0.3s forwards,
+    cursorOn  0s                  0.3s forwards,
+    cursorOff 0s                  2.85s forwards;
+}
+.heroTyping2 {
+  animation:
+    heroType2 2.5s steps(29, end) 3.3s forwards,
+    cursorOn  0s                  3.3s forwards,
+    cursorOff 0s                  5.85s forwards;
+}
+.heroTyping3 {
+  animation:
+    heroType3 2.2s steps(27, end) 6.3s forwards,
+    cursorOn  0s                  6.3s forwards,
+    cursorOff 0s                  8.55s forwards;
+}
+.heroTyping4 {
+  animation:
+    heroType4 2.2s steps(27, end) 9.0s forwards,
+    cursorOn  0s                  9.0s forwards,
+    heroBlink 1s   step-end       11.2s infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .heroLine,
+  .heroOutput { opacity: 1; }
+  .heroTyping,
+  .heroTyping1,
+  .heroTyping2,
+  .heroTyping3,
+  .heroTyping4 {
+    width: auto;
+    animation: none;
+    border-right: none;
+  }
 }
 
 .heroButtons {

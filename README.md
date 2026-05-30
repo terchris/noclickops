@@ -1,4 +1,4 @@
-# noclickops
+# noClickOps
 
 [![tests](https://github.com/terchris/noclickops/actions/workflows/tests.yml/badge.svg)](https://github.com/terchris/noclickops/actions/workflows/tests.yml)
 
@@ -12,7 +12,7 @@ Installed once per developer machine; operates on whichever git repo your shell 
 curl -fsSL https://raw.githubusercontent.com/terchris/noclickops/main/install.sh | bash
 ```
 
-The installer clones noclickops to `~/.noclickops`, adds `~/.noclickops/bin` to your `~/.zshrc` (or `~/.bashrc`) PATH, and prints a welcome message. Restart your shell — or `source ~/.zshrc` — and `noclickops` is on your PATH and resolves in any shell context: interactive, scripts, CI, anywhere.
+The installer clones noClickOps to `~/.noclickops`, adds `~/.noclickops/bin` to your `~/.zshrc` (or `~/.bashrc`) PATH, and prints a welcome message. Restart your shell — or `source ~/.zshrc` — and `noclickops` is on your PATH and resolves in any shell context: interactive, scripts, CI, anywhere.
 
 Re-running the installer is idempotent: it pulls the latest if already installed and never duplicates the rc-file line.
 
@@ -68,8 +68,8 @@ noclickops shell my-app test                   # open /bin/sh in the running con
 Identity is derived at call time:
 
 - **Target tenant** (`AZDO_ORG` / `AZDO_PROJECT` / `AZDO_REPO`) is parsed from the target repo's `origin` URL — supports both `https://[user@]dev.azure.com/…` and `git@ssh.dev.azure.com:v3/…`.
-- **Subscription, common RG, DNS zone** for `info` / `logs` / `shell` are read live from the engineer-owned IaC repo's `variables/<env>.yaml` — noclickops never invents or caches these.
-- **noclickops's own upstream** (for the version check) is derived from `~/.noclickops`'s `origin`. A fork at `alice/noclickops` checks alice's `main`, not the original maintainer's.
+- **Subscription, common RG, DNS zone** for `info` / `logs` / `shell` are read live from the engineer-owned IaC repo's `variables/<env>.yaml` — noClickOps never invents or caches these.
+- **noClickOps's own upstream** (for the version check) is derived from `~/.noclickops`'s `origin`. A fork at `alice/noclickops` checks alice's `main`, not the original maintainer's.
 
 No tenant / repo / project identity is hardcoded anywhere in `bin/`, `lib/`, `templates/`, or `shell/` — guarded by a portability grep in `tests/test-portability.sh`.
 
