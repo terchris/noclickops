@@ -38,13 +38,21 @@ SCRIPT_EXIT_CODES=(
   "1|Service config missing, pipeline missing (PR-A or PR-B not merged), pipeline failed, or az error."
 )
 SCRIPT_EXAMPLE_OUTPUT=$(cat <<'EOF'
-noclickops deploy v1.7.0 — smk1 → test
+noclickops deploy v1.7.3 — smk1 → test
 
 ==> Deploying 'smk1' → 'test' (FIRST-TIME — full chain, ~10 min)
-  [1/4] <source-project>/<repo>-smk1-build       run 28572 … succeeded (1m 3s)
-  [2/4] <source-project>/<repo>-smk1-deploy      run 28573 … succeeded (0m 42s)
-  [3/4] IaC/<repo>-smk1-infra-build              run 28575 … succeeded (0m 42s)
-  [4/4] IaC/<repo>-smk1-deploy-test (ARM)        run 28576 … succeeded (3m 6s)
+  [1/4] Source CI: build              (~2-3 min)
+        ↳ <source-project>/<repo>-smk1-build  run 28572 …
+succeeded (1m 3s)
+  [2/4] Source CI: deploy             (~1-2 min)
+        ↳ <source-project>/<repo>-smk1-deploy  run 28573 …
+succeeded (0m 42s)
+  [3/4] IaC: infrastructure build     (~2-3 min)
+        ↳ IaC/<repo>-smk1-infra-build  run 28575 …
+succeeded (0m 42s)
+  [4/4] IaC: provision + deploy       (~3-5 min)
+        ↳ IaC/<repo>-smk1-deploy-test  run 28576 …
+succeeded (3m 6s)
 
 Deploy complete.
   Container app: ca-abc100001-smk1 (rg-test-myteam-frontend-common)
@@ -52,7 +60,9 @@ Deploy complete.
 
 # Subsequent re-run uses the resource-trigger path:
 ==> Deploying 'smk1' → 'test' (subsequent run, resource trigger expected)
-  [1/1] <source-project>/<repo>-smk1-deploy      run 28577 … succeeded (0m 42s)
+  [1/1] Source CI: deploy             (~1-2 min)
+        ↳ <source-project>/<repo>-smk1-deploy  run 28577 …
+succeeded (0m 42s)
 ✓ Deploy complete.
 EOF
 )
@@ -137,30 +147,39 @@ if is_first_time_deploy "$service"; then
 
   log_step "Deploying '$service' → '$env' (FIRST-TIME — full chain, ~10 min)"
 
-  printf "  [1/4] %s/%s   run " "$AZDO_PROJECT" "$frontend_build_name"
+  # Step header pattern: each printf ends with \n so it survives watch_run's
+  # in-progress overwrite (which uses \r\033[K to refresh the same line and
+  # would otherwise erase the step prefix). Two visual lines per step:
+  #   [N/4] <label>  (~ETA)  run <id> …
+  #   succeeded (Xm Ys)
+  printf "  [1/4] %-30s (~2-3 min)\n" "Source CI: build"
+  printf "        ↳ %s/%s  " "$AZDO_PROJECT" "$frontend_build_name"
   run_id=$(trigger_pipeline "$AZDO_PROJECT" "$frontend_build_name" "targetEnvironment=$env")
-  printf "%s … " "$run_id"
+  printf "run %s …\n" "$run_id"
   if ! watch_run "$AZDO_PROJECT" "$run_id"; then
     die "Deploy failed at step 1/4 (build). See: $AZDO_ORG_URL/$AZDO_PROJECT/_build/results?buildId=$run_id"
   fi
 
-  printf "  [2/4] %s/%s  run " "$AZDO_PROJECT" "$frontend_deploy_name"
+  printf "  [2/4] %-30s (~1-2 min)\n" "Source CI: deploy"
+  printf "        ↳ %s/%s  " "$AZDO_PROJECT" "$frontend_deploy_name"
   run_id=$(trigger_pipeline "$AZDO_PROJECT" "$frontend_deploy_name" "targetEnvironment=$env")
-  printf "%s … " "$run_id"
+  printf "run %s …\n" "$run_id"
   if ! watch_run "$AZDO_PROJECT" "$run_id"; then
     die "Deploy failed at step 2/4 (deploy). See: $AZDO_ORG_URL/$AZDO_PROJECT/_build/results?buildId=$run_id"
   fi
 
-  printf "  [3/4] %s/%s   run " "$iac_project" "$iac_infra_build_name"
+  printf "  [3/4] %-30s (~2-3 min)\n" "IaC: infrastructure build"
+  printf "        ↳ %s/%s  " "$iac_project" "$iac_infra_build_name"
   run_id=$(trigger_pipeline "$iac_project" "$iac_infra_build_name")
-  printf "%s … " "$run_id"
+  printf "run %s …\n" "$run_id"
   if ! watch_run "$iac_project" "$run_id"; then
     die "Deploy failed at step 3/4 (infra-build). See: $AZDO_ORG_URL/$iac_project/_build/results?buildId=$run_id"
   fi
 
-  printf "  [4/4] %s/%s   run " "$iac_project" "$iac_deploy_name"
+  printf "  [4/4] %-30s (~3-5 min)\n" "IaC: provision + deploy"
+  printf "        ↳ %s/%s  " "$iac_project" "$iac_deploy_name"
   run_id=$(trigger_pipeline "$iac_project" "$iac_deploy_name")
-  printf "%s … " "$run_id"
+  printf "run %s …\n" "$run_id"
   if ! watch_run "$iac_project" "$run_id"; then
     die "Deploy failed at step 4/4 (deploy-${env}). See: $AZDO_ORG_URL/$iac_project/_build/results?buildId=$run_id"
   fi
@@ -188,12 +207,13 @@ fi
 log_step "Deploying '$service' → '$env' (subsequent run, resource trigger expected)"
 
 if [ "$watch" -eq 1 ]; then
-  printf "  [1/2] %s/%s  run " "$AZDO_PROJECT" "$frontend_deploy_name"
+  printf "  [1/2] %-30s (~1-2 min)\n" "Source CI: deploy"
 else
-  printf "  [1/1] %s/%s  run " "$AZDO_PROJECT" "$frontend_deploy_name"
+  printf "  [1/1] %-30s (~1-2 min)\n" "Source CI: deploy"
 fi
+printf "        ↳ %s/%s  " "$AZDO_PROJECT" "$frontend_deploy_name"
 run_id=$(trigger_pipeline "$AZDO_PROJECT" "$frontend_deploy_name" "targetEnvironment=$env")
-printf "%s … " "$run_id"
+printf "run %s …\n" "$run_id"
 if ! watch_run "$AZDO_PROJECT" "$run_id"; then
   die "Deploy failed at the source project/$frontend_deploy_name. See: $AZDO_ORG_URL/$AZDO_PROJECT/_build/results?buildId=$run_id"
 fi
@@ -201,7 +221,8 @@ fi
 if [ "$watch" -eq 1 ]; then
   [ -n "$iac_deploy_id" ] \
     || die "Cannot follow IaC deploy-${env}: pipeline '$iac_deploy_name' not found in $iac_project."
-  printf "  [2/2] %s/%s   waiting for auto-trigger" "$iac_project" "$iac_deploy_name"
+  printf "  [2/2] %-30s (~3-5 min)\n" "IaC: auto-trigger deploy"
+  printf "        ↳ %s/%s  waiting for auto-trigger" "$iac_project" "$iac_deploy_name"
 
   # Poll IaC for a recent run of $iac_deploy_id triggered by the resource
   # trigger (not a PR). Wait up to 60s for it to appear.
@@ -224,7 +245,7 @@ if [ "$watch" -eq 1 ]; then
     exit 0
   fi
 
-  printf " run %s … " "$iac_run_id"
+  printf " run %s …\n" "$iac_run_id"
   if ! watch_run "$iac_project" "$iac_run_id"; then
     die "IaC deploy-${env} failed. See: $AZDO_ORG_URL/$iac_project/_build/results?buildId=$iac_run_id"
   fi
