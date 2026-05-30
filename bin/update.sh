@@ -27,7 +27,7 @@ SCRIPT_EXIT_CODES=(
   "1|Pull failed (e.g. unmerged local changes in the install dir)."
 )
 SCRIPT_EXAMPLE_OUTPUT=$(cat <<'EOF'
-noclickops update v1.7.0 — pull latest noclickops
+noclickops update v1.7.6 — pull latest noclickops
 
 ==> Updating noclickops at /Users/.../.noclickops
 Updating fa1b3c..7e8d9a

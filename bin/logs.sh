@@ -33,7 +33,7 @@ SCRIPT_EXIT_CODES=(
   "1|Service / container app not found, access denied, or invalid arg."
 )
 SCRIPT_EXAMPLE_OUTPUT=$(cat <<'EOF'
-noclickops logs v1.7.0 — frontend (test, --tail 5)
+noclickops logs v1.7.6 — frontend (test, --tail 5)
 
 ℹ Container app: ca-abc100001-frontend (env: test, tail: 5)
 2026-05-29T15:45:01.234Z stdout F Listening on port 3000
@@ -42,9 +42,18 @@ noclickops logs v1.7.0 — frontend (test, --tail 5)
 2026-05-29T15:46:31.123Z stdout F GET / 200 2.4ms
 2026-05-29T15:47:01.456Z stdout F GET /health 200 1.1ms
 
-# When you lack Reader on the deployed subscription, logs fails closed:
-✗ discover_containerapp: could not find container app 'ca-abc100001-frontend' in RG 'rg-test-myteam-frontend-common' or subscription '3aec5ff4-...'.
-Set SVC_APP_NAME_OVERRIDE=<name> and SVC_RG_OVERRIDE=<rg> to override.
+# When you lack Reader on the deployed subscription, logs fails closed
+# with a structured probe diagnostic (v1.7.1+):
+  ✗ FAILED: discover container app for frontend
+  Looked for: ca-abc100001-frontend in RG rg-test-myteam-frontend-common of sub 3aec5ff4-...
+
+  Reason:  You do not have access to subscription "3aec5ff4-...".
+  Action:  → Ask your admin for Reader on "3aec5ff4-...", or use PIM to activate eligibility.
+           Subscriptions you DO have access to:
+             DEV - <team> - <name>  <sub-id>
+             ...
+
+  Override (skip discovery): SVC_APP_NAME_OVERRIDE=<name> SVC_RG_OVERRIDE=<rg>
 EOF
 )
 # --- end metadata ---

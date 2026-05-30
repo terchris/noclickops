@@ -20,13 +20,13 @@ SCRIPT_EXIT_CODES=(
   "1|Not in a git repo, on main branch, missing title, or az/git error."
 )
 SCRIPT_EXAMPLE_OUTPUT=$(cat <<'EOF'
-noclickops create-pr v1.7.0 — 'smoke: minimal Express stub in smk1' (smoke/clean-smk1 → main) in ABC100001-myservice
+noclickops create-pr v1.7.6 — 'feat: add login flow' (feature/login → main) in ABC100001-myservice
 
-==> Creating PR 'smoke: minimal Express stub in smk1' (smoke/clean-smk1 → main) in ABC100001-myservice
-✓ Created PR #4842
-  https://dev.azure.com/<org>/.../pullrequest/4842
+==> Creating PR 'feat: add login flow' (feature/login → main) in ABC100001-myservice
+✓ Created PR #4901
+  https://dev.azure.com/<org>/.../pullrequest/4901
 
-ℹ Next: noclickops merge-pr 4842
+ℹ Next: noclickops merge-pr 4901
 EOF
 )
 # --- end metadata ---

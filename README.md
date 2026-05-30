@@ -2,7 +2,7 @@
 
 [![tests](https://github.com/terchris/noclickops/actions/workflows/tests.yml/badge.svg)](https://github.com/terchris/noclickops/actions/workflows/tests.yml)
 
-A portable script suite that wraps the operations a developer does every day on Azure DevOps projects — open PRs, scaffold new services, deploy them, tail logs, open a shell in a running container — into one command per task. **No clickops** means no clicking around the ADO portal or Azure portal for routine work.
+A portable Bash CLI that wraps the operations a developer does every day on Azure DevOps + Azure Container Apps — scaffold a new service, deploy it, tail its logs, open a shell in the running container, list recent pipeline runs — into one command per task. **No clickops** means no clicking around the ADO portal or Azure portal for routine work.
 
 Installed once per developer machine; operates on whichever git repo your shell is currently in. Every command derives the target repo's identity from `git remote get-url origin` at call time, so the same commands work in every supported repo on your machine with no per-repo config.
 
@@ -16,66 +16,59 @@ The installer clones noclickops to `~/.noclickops`, adds `~/.noclickops/bin` to 
 
 Re-running the installer is idempotent: it pulls the latest if already installed and never duplicates the rc-file line.
 
-> **Slim by default (v1.5.4+).** The installer does a shallow clone (`--depth=1`) and a non-cone sparse-checkout that keeps **only what noclickops needs at runtime**: `bin/`, `lib/`, `templates/`, `shell/`, and `version.txt`. Everything else — root-level docs (README, LICENSE, AGENTS.md, CLAUDE.md), the installer scripts themselves, the docs site source, tests, CI workflows — stays in `.git/` but never materializes on disk. Result: around **750 KB total** (working tree + `.git/`) instead of the full ~10 MB. `noclickops update` (`git pull --ff-only`) maintains both the shallow boundary and the sparse set, so the install stays small over time. Contributors who need the full tree (to edit `website/`, `tests/`, etc.) should `git clone` the repo directly instead of using the installer. To re-run the installer, curl-pipe it again — the script isn't kept on disk.
-
-> **Upgrading from v1.0.x**: existing installs use a shell-function-based dispatcher loaded from `shell/init.sh`. That still works after `noclickops update`. To switch to the v1.1.0 PATH-based mechanism (so `noclickops` resolves outside interactive shells too), re-run `install.sh` — it'll add the PATH line and tell you what to remove.
-
-> **Windows / native PowerShell.** An `install.ps1` exists and mirrors the Bash flow, but the maintainer can't currently verify PowerShell scripts. For now we recommend running the Bash installer via **Git Bash** or **WSL**. If you want to try the native path, please file issues for anything that breaks.
-
 ## First commands
 
 ```bash
 noclickops                  # list every available command, grouped
 noclickops update           # pull the latest noclickops
-noclickops <cmd> --help     # show usage + example for any command
+noclickops <cmd> --help     # show usage, example, and example output
 ```
 
-## The v1.0.0 surface
-
-Eleven commands, grouped:
+## Commands
 
 | Category | Commands |
 | --- | --- |
-| **Meta** | `noclickops` (lister), `update` |
+| **Meta** | `noclickops` (lister), `update`, `version` |
 | **Git / pull requests** | `create-pr`, `merge-pr` |
 | **Deployment** | `deploy` |
-| **Service lifecycle** | `add-service`, `clean-sample`, `sync-lovable` |
+| **Service lifecycle** | `add-service`, `clean-sample` |
 | **Inspect / observe** | `info`, `logs`, `shell`, `status` |
 
 ### A typical day
 
 ```bash
-# Scaffold a new service via the Copier pipeline (~1h):
-noclickops add-service my-app
-noclickops status <run-id>            # check progress; pipeline opens a PR when done
-noclickops merge-pr <pr-id>
+# Scaffold a new service. add-service triggers the ADO add-service pipeline,
+# waits for the two PRs it produces (PR-A in the source repo, PR-B in the
+# IaC/platform-infrastructure repo), auto-merges both, and syncs local main.
+# Total: ~1-3 min, four observable steps.
+noclickops add-service my-app --public-endpoint
 
-# Replace the placeholder sample with real content:
-git checkout -b feature/my-app-content
-noclickops clean-sample my-app                 # strips the Next.js sample (safety-guarded)
-noclickops sync-lovable ~/work/my-app my-app   # mirror Lovable → service folder
-                                                # renders Dockerfile + nginx + health.json
-git add -A && git commit -m "feat: real content for my-app"
-noclickops create-pr "feat: real content for my-app"
-noclickops merge-pr <pr-id>
+# Optional: replace the OIDC starter the scaffold ships with your own code.
+noclickops clean-sample my-app
 
-# Deploy + observe:
-noclickops deploy my-app test --watch
+# First-time deploy chains four pipelines (source build → source deploy →
+# IaC build → IaC provision+deploy). ~6-10 min for internal services;
+# add 30-90 min for first-time public endpoints (Front Door + cert).
+noclickops deploy my-app test
+
+# Observe.
+noclickops status                              # recent runs in this repo
+noclickops status my-app test                  # filter to this service
 noclickops info my-app test                    # config + live container-app state
-noclickops logs my-app test --follow           # stream container logs
+noclickops logs my-app test --tail 200         # recent container logs
 noclickops shell my-app test                   # open /bin/sh in the running container
 ```
 
 ## What it operates against
 
-- **Target repos**: Azure DevOps repos in the **FRT-shaped** monorepo layout (`services/<svc>/` per service, with `.pipelines/variables/{common,test,prod}.yaml` for per-env config). GitHub-target support is a future extension.
-- **Pipelines**: Azure DevOps (`az pipelines run` against the `<repo>-<svc>-CD` and `<repo>-add-service` pipelines).
-- **Cloud**: Azure Container Apps (`az containerapp list / logs show / exec`).
+- **Target repos**: Azure DevOps repos scaffolded via `copier-add-service` (`services/<svc>/` per service, with per-service `config.<env>.yaml` and a paired `platform-infrastructure` IaC repo).
+- **Pipelines**: Azure DevOps. The `add-service` flow drives a single `<repo>-add-service` pipeline; `deploy` orchestrates four pipelines split across the source repo and the IaC repo.
+- **Cloud**: Azure Container Apps — `noclickops info / logs / shell` query the live container app via `az containerapp show / logs show / exec`.
 
 Identity is derived at call time:
 
-- The **target tenant** (`AZDO_ORG` / `AZDO_PROJECT` / `AZDO_REPO`) is parsed from the target repo's `origin` URL — supports both `https://[user@]dev.azure.com/…` and `git@ssh.dev.azure.com:v3/…`.
-- The **subscription** for `info` / `logs` / `shell` is read from `.pipelines/variables/<env>.yaml` (`SUBSCRIPTION_ID`).
+- **Target tenant** (`AZDO_ORG` / `AZDO_PROJECT` / `AZDO_REPO`) is parsed from the target repo's `origin` URL — supports both `https://[user@]dev.azure.com/…` and `git@ssh.dev.azure.com:v3/…`.
+- **Subscription, common RG, DNS zone** for `info` / `logs` / `shell` are read live from the engineer-owned IaC repo's `variables/<env>.yaml` — noclickops never invents or caches these.
 - **noclickops's own upstream** (for the version check) is derived from `~/.noclickops`'s `origin`. A fork at `alice/noclickops` checks alice's `main`, not the original maintainer's.
 
 No tenant / repo / project identity is hardcoded anywhere in `bin/`, `lib/`, `templates/`, or `shell/` — guarded by a portability grep in `tests/test-portability.sh`.
@@ -85,9 +78,9 @@ No tenant / repo / project identity is hardcoded anywhere in `bin/`, `lib/`, `te
 | Commands | Required |
 | --- | --- |
 | `create-pr`, `merge-pr`, `deploy`, `add-service`, `status` | `az login` to the target's ADO tenant; first run also installs the `azure-devops` extension automatically |
-| `info`, `logs`, `shell` | The above, plus **Reader** (or higher) on the Azure subscription in the target's `.pipelines/variables/<env>.yaml` |
+| `info`, `logs`, `shell` | The above, plus **Reader** (or higher) on the Azure subscription named in the IaC repo's `variables/<env>.yaml` |
 
-Commands that need subscription access fail closed with a clear "ask your team admin for Reader on subscription `<id>`" message when the access isn't there. `info` degrades gracefully (still shows static config from the YAML files); `logs` and `shell` exit non-zero — the user wants live data, partial output is worse than a clear error.
+When subscription access is missing, the commands fail with a structured diagnostic that names the exact subscription, action (Reader / PIM activation), and which subscriptions you currently have access to. `info` degrades gracefully (still shows static config); `logs` and `shell` exit non-zero — the user wants live data, partial output is worse than a clear error.
 
 ## Keeping up to date
 
@@ -95,39 +88,33 @@ Commands that need subscription access fail closed with a clear "ask your team a
 noclickops update           # git pull --ff-only in ~/.noclickops
 ```
 
-The lister also shows a friendly hint when your install is behind:
+The lister also shows a hint when your install is behind:
 
 ```text
-noclickops v1.0.0 — portable script suite for developers
+noclickops v1.7.5 — portable script suite for developers
 ...
-⬆ Update available: v1.0.1 — run 'noclickops update'
+⬆ Update available: v1.7.6 — run 'noclickops update'
 ```
 
-The remote check is cached for 1 hour to keep the lister snappy. Failures (network down, no GitHub access) are silent — no warning, no hint.
+The remote check is cached for 1 hour to keep the lister snappy. Failures (network down, no GitHub access) are silent.
 
 ## Status
 
-**v1.0.0** — full surface shipped. All 11 commands work; the 285-test suite passes locally.
-
-### Known v1 limitations
-
-- **PowerShell ports** ship for every script but are **unverified on macOS** (no `pwsh` on the maintainer's machine). The Bash side is the validated surface.
-- **`sync-lovable` is bash-only.** The PowerShell port is a stub that errors with "use Git Bash or WSL" — `rsync`'s exclude+delete semantics don't safely map to `robocopy` / `Copy-Item` without thorough testing.
-- **End-to-end integration tests** (real `az`, real PRs, real pipelines) are deferred. Manual gating remains — the next real `noclickops <cmd>` against a live target is the live validation.
+**v1.7.x** — stabilization toward v2.0.0. The current surface is twelve commands, all Bash-only, validated against a live Azure DevOps + Azure Container Apps target. v2.0.0 marks the cutover when the full add-service → deploy → observe loop has been smoke-validated end-to-end against a real customer-shaped repo; PowerShell siblings are no longer shipped (Bash is the supported surface), and a Bun-based rewrite is on the longer-term roadmap.
 
 ## Forks
 
 `noclickops` is fork-friendly:
 
 - The version-check looks at `~/.noclickops`'s `origin` remote — your fork checks itself.
-- The target-tenant derivation looks at each target repo's `origin` remote — any FRT-shaped ADO repo works.
+- The target-tenant derivation looks at each target repo's `origin` remote — any ADO repo with a compatible layout works.
 - The portability guard (`tests/test-portability.sh`) ensures nobody re-introduces hardcoded identity.
 
 ## Development
 
 This repo uses a structured AI-developer workflow — see [`CLAUDE.md`](CLAUDE.md) (or [`AGENTS.md`](AGENTS.md) for Codex) for the entry point.
 
-The v1 surface was built across the PLANs documented in [`website/docs/ai-developer/plans/completed/`](https://github.com/terchris/noclickops/tree/main/website/docs/ai-developer/plans/completed/) — design rationale, completion notes, and per-PLAN smoke-test results are all there.
+Design rationale, completion notes, and per-PLAN smoke-test results live in [`website/docs/ai-developer/plans/`](https://github.com/terchris/noclickops/tree/main/website/docs/ai-developer/plans/).
 
 ### Running the test suite
 
@@ -135,11 +122,11 @@ The v1 surface was built across the PLANs documented in [`website/docs/ai-develo
 bash tests/run-all.sh
 ```
 
+433 tests across the suite. No `az` / network / auth required — every fixture is built in `mktemp -d`.
+
 ### Working on the docs site
 
 `website/` is a Docusaurus app — `cd website && npm install && npm start`. Full instructions in [`project-noclickops.md`](website/docs/ai-developer/project-noclickops.md#working-on-the-docs-site).
-
-285 tests across 11 files. No `az` / network / auth required — every fixture is built in `mktemp -d`.
 
 ## License
 
