@@ -44,7 +44,7 @@ SCRIPT_EXIT_CODES=(
   "1|Service config / IaC variables missing, invalid env, or az error not related to access."
 )
 SCRIPT_EXAMPLE_OUTPUT=$(cat <<'EOF'
-noclickops info v1.7.0 — frontend (test)
+noclickops info v1.7.6 — frontend (test)
 
 Service: frontend (test)
 ────────────────────────────────────────

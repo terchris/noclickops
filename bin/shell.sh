@@ -32,16 +32,24 @@ SCRIPT_EXIT_CODES=(
   "1|Service / container / revision not found, or access denied."
 )
 SCRIPT_EXAMPLE_OUTPUT=$(cat <<'EOF'
-noclickops shell v1.7.0 — frontend (test, cmd: /bin/sh)
+noclickops shell v1.7.6 — frontend (test, cmd: /bin/sh)
 
 ℹ Container app: ca-abc100001-frontend (env: test, cmd: /bin/sh)
 /app $ ls
 package.json  server.js
 /app $ exit
 
-# Gate behaviour when discovery fails:
-✗ discover_containerapp: could not find container app 'ca-abc100001-frontend' in RG 'rg-test-myteam-frontend-common' or subscription '3aec5ff4-...'.
-Set SVC_APP_NAME_OVERRIDE=<name> and SVC_RG_OVERRIDE=<rg> to override.
+# Gate behaviour when discovery fails — structured probe diagnostic (v1.7.1+):
+  ✗ FAILED: discover container app for frontend
+  Looked for: ca-abc100001-frontend in RG rg-test-myteam-frontend-common of sub 3aec5ff4-...
+
+  Reason:  You do not have access to subscription "3aec5ff4-...".
+  Action:  → Ask your admin for Reader on "3aec5ff4-...", or use PIM to activate eligibility.
+           Subscriptions you DO have access to:
+             DEV - <team> - <name>  <sub-id>
+             ...
+
+  Override (skip discovery): SVC_APP_NAME_OVERRIDE=<name> SVC_RG_OVERRIDE=<rg>
 EOF
 )
 # --- end metadata ---

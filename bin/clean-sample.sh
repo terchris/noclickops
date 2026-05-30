@@ -29,7 +29,7 @@ SCRIPT_EXIT_CODES=(
   "1|Service folder missing, not a v2-layout service, or app/server.js has been modified."
 )
 SCRIPT_EXAMPLE_OUTPUT=$(cat <<'EOF'
-noclickops clean-sample v1.7.0 — strip Express+OIDC sample from services/smk1/app/
+noclickops clean-sample v1.7.6 — strip Express+OIDC sample from services/smk1/app/
 
 ==> Replacing the Express+OIDC sample in services/smk1/app/
 ℹ rewrote services/smk1/app/server.js
