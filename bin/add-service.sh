@@ -35,10 +35,11 @@ SCRIPT_EXIT_CODES=(
   "1|Pipeline failed, PR-A merge failed, or PR-B didn't appear within the 5 min poll window."
 )
 SCRIPT_EXAMPLE_OUTPUT=$(cat <<'EOF'
-noclickops add-service v1.7.0 — scaffolding 'smk1' (~1-3 min, 4 steps)
+noclickops add-service v1.7.3 — scaffolding 'smk1' (~1-3 min, 4 steps)
 
   [1/4] Trigger add-service pipeline             (~30-60s)  params: persistent_storage=false  public_endpoint=false
-  [1/4] Trigger add-service pipeline             (~30-60s)  run 28544 … succeeded (0m 43s)
+        ↳ <source-project>/<repo>-add-service  run 28544 …
+succeeded (0m 43s)
   [2/4] Wait for PR-A in source repo             (~10-30s)  found #4837 … merged
   [3/4] Wait for PR-B in IaC/platform-infra      (~10-30s)  found #4838 … merged
   [4/4] Sync local main                          (~5s)      ok
@@ -114,6 +115,9 @@ derive_azdo_context "$TARGET_REPO"
 iac_project=$(discover_iac_project)
 
 pipeline="$AZDO_REPO-add-service"
+# Step header pattern (matches bin/deploy.sh v1.7.3): the log_info on the
+# next line commits the header with \n, and the '↳ ... run X …' line ends
+# with \n so it too survives watch_run's \r\033[K refresh.
 printf "  [1/4] Trigger add-service pipeline             (~30-60s)  "
 log_info  "params: persistent_storage=$persistent_storage  public_endpoint=$public_endpoint"
 
@@ -123,7 +127,7 @@ run_id=$(trigger_pipeline "$AZDO_PROJECT" "$pipeline" \
   "public_endpoint=$public_endpoint")
 
 run_url="$AZDO_ORG_URL/$AZDO_PROJECT/_build/results?buildId=$run_id"
-printf "  [1/4] Trigger add-service pipeline             (~30-60s)  run %s … " "$run_id"
+printf "        ↳ %s/%s  run %s …\n" "$AZDO_PROJECT" "$pipeline" "$run_id"
 if ! watch_run "$AZDO_PROJECT" "$run_id" --timeout-min 10; then
   echo ""
   die "Pipeline failed. See: $run_url"
