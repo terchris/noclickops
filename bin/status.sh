@@ -118,8 +118,10 @@ if [ -z "$run_id" ]; then
     die "az pipelines runs list returned nothing — check 'az login' and the azure-devops extension."
   fi
 
-  # Compress queueTime from 'YYYY-MM-DDTHH:MM:SS.ffffffZ' → 'YYYY-MM-DD HH:MM'.
-  trim_time='s/T([0-9]{2}:[0-9]{2}):[0-9.]+Z?/ \1/'
+  # Compress queueTime to 'YYYY-MM-DD HH:MM'. az emits either '…SS.ffffffZ'
+  # or '…SS.ffffff+00:00' depending on tenant config; both end the row so
+  # strip everything after the minutes (Queued is the last column).
+  trim_time='s/T([0-9]{2}:[0-9]{2}).*$/ \1/'
 
   # Filter prefix: repo (always) + optional service.
   filter_pat="$AZDO_REPO-"
