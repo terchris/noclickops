@@ -13,8 +13,8 @@ const GITHUB_ORG = process.env.GITHUB_ORG || 'terchris';
 const GITHUB_REPO = process.env.GITHUB_REPO || 'noclickops';
 
 const config: Config = {
-  title: 'noclickops',
-  tagline: 'A portable script suite — type a command instead of clicking a UI',
+  title: 'noClickOps',
+  tagline: 'No clicking around the portal. Just type the command.',
   favicon: 'img/favicon.svg',
 
   future: {
@@ -70,14 +70,18 @@ const config: Config = {
   ],
 
   themeConfig: {
+    // Open Graph / Twitter card image — used when the site URL is shared
+    // on social platforms (Slack, LinkedIn, Twitter/X, Discord, etc.).
+    // 1200x630 PNG generated from static/img/social-card.svg.
+    image: 'img/social-card.png',
     colorMode: {
       defaultMode: 'light',
       respectPrefersColorScheme: true,
     },
     navbar: {
-      title: 'noclickops',
+      title: 'noClickOps',
       logo: {
-        alt: 'noclickops logo',
+        alt: 'noClickOps logo',
         src: 'img/favicon.svg',
       },
       items: [
@@ -129,7 +133,7 @@ const config: Config = {
           ],
         },
       ],
-      copyright: `Copyright © ${new Date().getFullYear()} noclickops contributors. MIT.`,
+      copyright: `Copyright © ${new Date().getFullYear()} noClickOps contributors. MIT.`,
     },
     prism: {
       theme: prismThemes.github,

@@ -9,7 +9,7 @@ The release gate for promoting any v2.x version to **2.0.0**, and the regression
 
 **What this is:** an explicit pass/fail checklist that exercises every v2 command against a real new-layout target repo. Each step has a strict `Result must show:` line so two different runners reach the same verdict.
 
-**What this is not:** a tutorial. For new-user onboarding, see [Getting started](/docs/getting-started). This doc assumes the runner has installed noclickops, is logged in to Azure, has access to the target repo, and has permission to merge PRs in both projects.
+**What this is not:** a tutorial. For new-user onboarding, see the [docs landing page](/docs/). This doc assumes the runner has installed noClickOps, is logged in to Azure, has access to the target repo, and has permission to merge PRs in both projects.
 
 **Timing:** the **mandatory** path (phases 1-4, internal-only service) completes in **~15-20 min**. The **optional** public-endpoint path (phase 6) adds **30-90 min** of waiting for Front Door custom-domain validation + DNS + managed cert — kick it off async; check back in an hour. **Never block the mandatory smoke on the public-endpoint wait.**
 

@@ -38,7 +38,6 @@ const commandsByCategory = categories
 const sidebars: SidebarsConfig = {
   docsSidebar: [
     'index',
-    'getting-started',
     {
       type: 'category',
       label: 'Commands',
