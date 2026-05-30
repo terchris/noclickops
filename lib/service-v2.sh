@@ -671,9 +671,13 @@ discover_containerapp() {
   fi
 
   # Couldn't find it via either query. Run a sequence of diagnostic checks
-  # so the user knows exactly which layer is the problem.
+  # so the user knows exactly which layer is the problem. The reporter
+  # already prints a formatted ✗ FAILED block + Reason + Action; emitting
+  # another die line after it ("container app not found (see above)") was
+  # noise. Just return non-zero — callers (info / logs / shell) decide
+  # whether to die or degrade.
   report_discovery_failure "$svc" "$derived" "$common_rg" "$sub"
-  die "discover_containerapp: container app not found (see above)."
+  return 1
 }
 
 # report_discovery_failure <svc> <derived-name> <common-rg> <subscription>

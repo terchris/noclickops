@@ -110,7 +110,9 @@ if [ -z "${NCO_AZ_OVERRIDE:-}" ]; then
   az account show >/dev/null 2>&1 || die "Not logged in to Azure. Run: az login"
 fi
 
-# discover_containerapp dies on full failure — perfect gating behaviour.
+# discover_containerapp returns 1 on failure (after report_discovery_failure
+# prints the actionable diagnostic to stderr); set -e + the assignment then
+# kills this script with the same exit code.
 discover_output=$(discover_containerapp "$service")
 ca_name=""; ca_rg=""
 while IFS='=' read -r k v; do
