@@ -29,8 +29,8 @@ The repo says three different things about PowerShell at the same time:
 
 | Source | Claim |
 |---|---|
-| [`README.md`](../../../../../README.md) line 103 (v1.7.6) | "PowerShell siblings are **no longer shipped** (Bash is the supported surface)" |
-| [`CLAUDE.md`](../../../../../CLAUDE.md) line 28 | "**Multi-OS by default.** Every script ships `.sh` … and `.ps1` … siblings." |
+| [`README.md`](https://github.com/terchris/noclickops/blob/main/README.md) line 103 (v1.7.6) | "PowerShell siblings are **no longer shipped** (Bash is the supported surface)" |
+| [`CLAUDE.md`](https://github.com/terchris/noclickops/blob/main/CLAUDE.md) line 28 | "**Multi-OS by default.** Every script ships `.sh` … and `.ps1` … siblings." |
 | The tree | 12 `bin/*.ps1`, `install.ps1`, and 8 `lib/*.ps1` are present and tracked |
 
 They are not dead files. `install.sh`'s sparse-checkout set is `/bin/ /lib/ /templates/ /shell/
