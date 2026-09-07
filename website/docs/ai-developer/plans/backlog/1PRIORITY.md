@@ -4,9 +4,9 @@
 > deferred pending a prerequisite, and what is parked. This is a triage tool, not a roadmap —
 > see [PLANS.md → "Keeping `backlog/1PRIORITY.md` current"](../../PLANS.md).
 
-**Last Updated**: 2026-08-30
+**Last Updated**: 2026-09-07
 **Snapshot**: v1.7.6 · default branch `main` · plans: **0 active / 5 backlog / 29 completed** ·
-open PRs: **14** (all Dependabot, `website/`) · open issues: **0**
+open PRs: **0** · open issues: **0**
 
 ---
 
@@ -54,6 +54,13 @@ claims is not.
 
 **Blocks:** [PLAN-G](PLAN-G-v1-cleanup.md), whose scope is wrong until this is settled (below).
 
+**Status:** asked 2026-08-30; a fleet hold is open and escalates to a human daily until answered.
+Note the decision may already have been taken and never executed — `README.md` and
+[PLAN-G](PLAN-G-v1-cleanup.md) ("PowerShell was dropped at v2") both state it was, while
+`CLAUDE.md` still mandates the opposite and the installer still ships it. If so this is a
+confirmation rather than a fresh call. The one fact nobody has supplied: whether any user runs
+native PowerShell without WSL or Git Bash. That answer decides it outright.
+
 ---
 
 ## Tier 2 — ready once Tier 1 lands
@@ -84,15 +91,40 @@ already plans to retire.
 
 ## Tier 3 — real maintenance, not blocked, not urgent
 
-### 14 open Dependabot PRs, all `website/`
+### ~~14 open Dependabot PRs~~ — done 2026-09-07
 
-`#21` (launch-editor) has been open since **2026-06-19**; the newest is `#38`. None have been
-triaged, merged, or closed with a reason. All are `website/` build-time dependencies — none reach
-`bin/`, `lib/`, or `templates/`, which is why this is Tier 3 and not Tier 1. Some carry security
-advisories (`dompurify`, `postcss`, `undici`, `body-parser`).
+Closed by [#43](https://github.com/terchris/noclickops/pull/43), a batched sweep. The queue had
+grown to 16 by the time it was worked. All were transitive-only security advisories in
+`website/`; `website/package.json` never changed. `npm audit` went **45 advisories to 29, critical
+1 to 0** (`websocket-driver <=0.7.4`). The 16 individual PRs were closed as superseded rather than
+left to rot, so the queue does not silently rebuild.
 
-**One thing that closes it:** one batch pass — merge what CI passes, close what the docs build does
-not need, and record the decision so the queue does not silently rebuild.
+### The website build is not covered by CI
+
+Found while doing the sweep above, and it is the more durable problem.
+
+`.github/workflows/tests.yml` runs `bash tests/run-all.sh` and nothing else. The Docusaurus build
+runs in `.github/workflows/deploy-docs.yml`, which triggers on **push to `main`** — that is, after
+merge. Since `docusaurus.config.ts` sets `onBrokenLinks: 'throw'`, **a change that breaks the docs
+build passes its PR check green and breaks `main`.** All 16 dependency PRs above would have merged
+green without anyone building them; #43 was verified locally instead, which is not a control that
+survives the next contributor.
+
+**One thing that closes it:** a job in `tests.yml` that runs `scripts/generate-docs.sh` and
+`npm run build` for PRs touching `website/`. Same steps `deploy-docs.yml` already uses, moved
+before the merge instead of after.
+
+### 29 npm advisories remain, and they are not individually fixable
+
+What is left after #43 is the `@docusaurus/*` cascade plus `image-size` and `serialize-javascript`,
+none of which has a fix at the pinned Docusaurus **3.10.1**. A **3.10.2** patch is available and may
+clear part of the cascade — it needs to be tried and built, not assumed. The only fix npm offers for
+`@easyops-cn/docusaurus-search-local` is a semver-major *downgrade* to 0.29.0, which is not safe and
+should not be taken on audit's advice alone.
+
+**One thing that closes it:** try 3.10.2 on a branch, rebuild, re-audit, and record what it did and
+did not fix. Deliberately not bundled into the security sweep, so a build regression would be
+attributable.
 
 ---
 
