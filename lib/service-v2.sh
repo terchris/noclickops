@@ -48,6 +48,12 @@ _nco_az() {
 # to plain `git` if no az token is available — caller handles auth failure
 # itself in that case.
 #
+# The token is passed via GIT_CONFIG_COUNT/KEY/VALUE env vars, not `-c` on
+# the command line: `-c` puts the bearer token in argv, readable by any
+# local user via `ps` and recorded by process auditing. The environment is
+# owner-only (/proc/<pid>/environ is 0400). Needs git >= 2.31 (2021) for
+# GIT_CONFIG_* — flagged by ops-sec, urb-agents #1764.
+#
 # Reads TARGET_REPO if set; falls back to git's auto-detection of the cwd.
 nco_git() {
   local target="${TARGET_REPO:-}" token=""
@@ -55,7 +61,10 @@ nco_git() {
     --resource "${NCO_ADO_APP_ID:-499b84ac-1321-427f-aa17-267ca6975798}" \
     --query accessToken -o tsv 2>/dev/null) || true
   if [ -n "$token" ]; then
-    git ${target:+-C "$target"} -c http.extraheader="AUTHORIZATION: bearer $token" "$@"
+    GIT_CONFIG_COUNT=1 \
+    GIT_CONFIG_KEY_0="http.extraheader" \
+    GIT_CONFIG_VALUE_0="AUTHORIZATION: bearer $token" \
+      git ${target:+-C "$target"} "$@"
   else
     git ${target:+-C "$target"} "$@"
   fi
@@ -80,9 +89,14 @@ _nco_ado_rest_get() {
     --query accessToken -o tsv 2>/dev/null) || { NCO_ADO_REST_LAST_STATUS="401"; return 1; }
 
   # Capture HTTP status alongside the body so we can report meaningfully.
+  # The token goes to curl via a --config file on stdin (`-K -`), not `-u`
+  # on the command line: `-u` puts it in argv, readable by any local user
+  # via `ps` and recorded by process auditing. Flagged by ops-sec,
+  # urb-agents #1764.
   local status body tmp
   tmp=$(mktemp)
-  status=$(curl -s -u ":$token" -o "$tmp" -w '%{http_code}' "$url")
+  status=$(printf 'header = "Authorization: Bearer %s"\n' "$token" \
+    | curl -s -K - -o "$tmp" -w '%{http_code}' "$url")
   body=$(cat "$tmp")
   rm -f "$tmp"
   NCO_ADO_REST_LAST_STATUS="$status"
